@@ -343,8 +343,9 @@
   .lightbox-inner img{ width:100%; height:auto; border-radius:8px; box-shadow:0 20px 50px rgba(0,0,0,.5); display:block; }
   .lightbox-caption{ font-family:'Fraunces', serif; font-weight:600; font-size:16px; color:#f4ecd8; margin-top:12px; }
   .lightbox-close{
-    position:absolute; top:-14px; right:-14px; width:32px; height:32px; border-radius:50%;
-    background: var(--rust); color:#fffdf6; font-size:14px; border:2px solid #fffdf6;
+    position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:50%;
+    background: var(--paper); color: var(--ink); font-size:14px; border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer;
   }
 
   .letter-status{
@@ -2308,12 +2309,92 @@ function showReveal(idx){
   });
 }
 
+
+// Grovere regio-indeling, puur voor de tekstweergave (de kaart zelf blijft
+// altijd elk individueel land precies markeren). Landen die samen in
+// dezelfde regio vallen worden pas samengevoegd tot die regionaam als de
+// groep groter is dan 5 landen -- anders blijven de losse landnamen staan.
+const COUNTRY_TO_REGION = {
+  ca:'namerica_north', gl:'namerica_north',
+  us:'namerica_temperate', mx:'namerica_temperate',
+  gt:'camerica', bz:'camerica', hn:'camerica', sv:'camerica', ni:'camerica', cr:'camerica', pa:'camerica',
+  br:'samerica_tropical', co:'samerica_tropical', ve:'samerica_tropical', ec:'samerica_tropical', pe:'samerica_tropical', gy:'samerica_tropical', sr:'samerica_tropical', bo:'samerica_tropical',
+  ar:'samerica_south', cl:'samerica_south', uy:'samerica_south', py:'samerica_south',
+  nl:'europe_west', be:'europe_west', de:'europe_west', fr:'europe_west', gb:'europe_west', ie:'europe_west', ch:'europe_west', at:'europe_west',
+  no:'europe_north', se:'europe_north', fi:'europe_north', dk:'europe_north', is:'europe_north',
+  es:'europe_south', pt:'europe_south', it:'europe_south', gr:'europe_south', hr:'europe_south', al:'europe_south', ro:'europe_south',
+  pl:'europe_east', by:'europe_east',
+  ma:'africa_north', dz:'africa_north', tn:'africa_north', ly:'africa_north', eg:'africa_north', mr:'africa_north',
+  ke:'africa_subsaharan', tz:'africa_subsaharan', ug:'africa_subsaharan', et:'africa_subsaharan', ng:'africa_subsaharan', gh:'africa_subsaharan', ci:'africa_subsaharan', sn:'africa_subsaharan', cm:'africa_subsaharan', zm:'africa_subsaharan', zw:'africa_subsaharan', bw:'africa_subsaharan', na:'africa_subsaharan', rw:'africa_subsaharan',
+  cd:'africa_central', cg:'africa_central', ga:'africa_central', cf:'africa_central',
+  za:'africa_south', ls:'africa_south', sz:'africa_south', mz:'africa_south',
+  mg:'africa_madagascar',
+  sa:'asia_west', ae:'asia_west', om:'asia_west', ye:'asia_west', iq:'asia_west', ir:'asia_west', jo:'asia_west', tr:'asia_west',
+  kz:'asia_central', uz:'asia_central', tm:'asia_central', kg:'asia_central', tj:'asia_central', mn:'asia_central',
+  in:'asia_south', np:'asia_south', bd:'asia_south', bt:'asia_south', lk:'asia_south', pk:'asia_south',
+  id:'asia_southeast', my:'asia_southeast', th:'asia_southeast', vn:'asia_southeast', ph:'asia_southeast', mm:'asia_southeast', kh:'asia_southeast', la:'asia_southeast',
+  cn:'asia_east', jp:'asia_east', kr:'asia_east', kp:'asia_east', tw:'asia_east',
+  ru:'asia_north',
+  au:'australia',
+  nz:'oceania', fj:'oceania', pg:'oceania', vu:'oceania', ws:'oceania',
+  aq:'antarctic'
+};
+const REGION_LABELS = {
+  namerica_north: { nl:'Noord-Canada & Groenland', en:'Northern Canada & Greenland' },
+  namerica_temperate: { nl:'Noord-Amerika', en:'North America' },
+  camerica: { nl:'Midden-Amerika', en:'Central America' },
+  samerica_tropical: { nl:'Tropisch Zuid-Amerika', en:'Tropical South America' },
+  samerica_south: { nl:'Zuidelijk Zuid-Amerika', en:'Southern South America' },
+  europe_west: { nl:'West- & Midden-Europa', en:'Western & Central Europe' },
+  europe_north: { nl:'Scandinavië', en:'Scandinavia' },
+  europe_south: { nl:'Zuid-Europa', en:'Southern Europe' },
+  europe_east: { nl:'Oost-Europa', en:'Eastern Europe' },
+  africa_north: { nl:'Noord-Afrika', en:'North Africa' },
+  africa_subsaharan: { nl:'Afrika (ten zuiden van de Sahara)', en:'Sub-Saharan Africa' },
+  africa_central: { nl:'Centraal-Afrika', en:'Central Africa' },
+  africa_south: { nl:'Zuidelijk Afrika', en:'Southern Africa' },
+  africa_madagascar: { nl:'Madagaskar', en:'Madagascar' },
+  asia_west: { nl:'Midden-Oosten', en:'the Middle East' },
+  asia_central: { nl:'Centraal-Azië', en:'Central Asia' },
+  asia_south: { nl:'Zuid-Azië', en:'South Asia' },
+  asia_southeast: { nl:'Zuidoost-Azië', en:'Southeast Asia' },
+  asia_east: { nl:'Oost-Azië', en:'East Asia' },
+  asia_north: { nl:'Siberië', en:'Siberia' },
+  australia: { nl:'Australië', en:'Australia' },
+  oceania: { nl:'Oceanië', en:'Oceania' },
+  antarctic: { nl:'Antarctica', en:'Antarctica' }
+};
+function buildRegionLabel(countryCodes, names, lang){
+  const groups = {};
+  const noRegion = [];
+  for(const code of countryCodes){
+    const region = COUNTRY_TO_REGION[code];
+    if(!region){ noRegion.push(code); continue; }
+    groups[region] = groups[region] || [];
+    groups[region].push(code);
+  }
+  const parts = [];
+  const seenRegion = new Set();
+  for(const code of countryCodes){
+    const region = COUNTRY_TO_REGION[code];
+    if(region && groups[region].length > 5){
+      if(!seenRegion.has(region)){
+        seenRegion.add(region);
+        parts.push(REGION_LABELS[region][lang]);
+      }
+    } else if(names[code]){
+      parts.push(names[code]);
+    }
+  }
+  return parts;
+}
+
 function renderWorldMap(countryCodes){
   const names = gameLang === 'nl' ? COUNTRY_NAMES.nl : COUNTRY_NAMES.en;
-  const labels = countryCodes.map(c => names[c]).filter(Boolean);
+  const labels = buildRegionLabel(countryCodes, names, gameLang);
   mapRegionLabelEl.textContent = labels.length ? labels.join(', ') : (gameLang === 'nl' ? 'Onbekend leefgebied' : 'Unknown habitat');
   const highlightRule = countryCodes.length
-    ? `#worldmap ${countryCodes.map(c => `[id="${c}"]`).join(', #worldmap ')} { fill:#9c4a1c !important; }`
+    ? countryCodes.map(c => `#worldmap [id="${c}"], #worldmap [id="${c}"] path`).join(', ') + ` { fill:#9c4a1c !important; }`
     : '';
   mapSvgWrapEl.innerHTML = `<style>
     #worldmap path, #worldmap g, #worldmap circle { fill:#e5d8b8; stroke:#c9b98a; stroke-width:1; }
