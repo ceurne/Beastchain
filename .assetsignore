@@ -1,3 +1,5 @@
+.git
+.wrangler
 src
 wrangler.jsonc
 .assetsignore
