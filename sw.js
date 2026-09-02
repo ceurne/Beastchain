@@ -2,7 +2,7 @@
 // Bump this version whenever you upload a new build; the old cache is then
 // thrown away automatically so players get the new version instead of a
 // stale copy from their phone.
-const CACHE = 'beastchain-v1';
+const CACHE = 'beastchain-v2';
 
 const APP_SHELL = [
   './',
@@ -48,12 +48,39 @@ self.addEventListener('fetch', (event) => {
     url.hostname.includes('inaturalist.org');
   if (isLiveData) return; // let the browser handle it normally
 
+  // The main app page is a single large file (a couple of MB, since it
+  // bundles the world map and all animal data). If a download gets cut
+  // short partway through -- a flaky connection right as a new version was
+  // uploaded -- fetch() can still resolve with a 200 response whose body
+  // is truncated, and that broken copy would otherwise get cached as if it
+  // were fine, causing a blank white screen on next launch until the app is
+  // deleted and reinstalled. A minimum-size sanity check catches this: a
+  // real index.html here should always be at least ~200KB.
+  const isAppShellDoc = url.origin === self.location.origin &&
+    (url.pathname === '/' || url.pathname.endsWith('/index.html') || url.pathname === '/index.html');
+  const MIN_APP_SHELL_BYTES = 200000;
+
   // App shell: network first (so a fresh upload is picked up straight away),
-  // falling back to the cached copy when offline.
+  // falling back to the cached copy when offline or when the fetch itself
+  // errors out.
   event.respondWith(
     fetch(req)
-      .then((res) => {
+      .then(async (res) => {
         if (res && res.status === 200 && url.origin === self.location.origin) {
+          if (isAppShellDoc) {
+            // Read the body once to check its size before deciding whether
+            // to trust and cache it.
+            const buf = await res.clone().arrayBuffer();
+            if (buf.byteLength < MIN_APP_SHELL_BYTES) {
+              // Truncated download -- do NOT cache this broken copy. Try to
+              // serve a previously-good cached version instead; if there
+              // isn't one, fall through to returning this (broken) response
+              // since there's nothing better to offer.
+              const cachedGood = await caches.match('./index.html');
+              if (cachedGood) return cachedGood;
+              return res;
+            }
+          }
           const copy = res.clone();
           caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
         }
