@@ -7001,7 +7001,7 @@ function startSync(topic){
   if(syncTimer) clearInterval(syncTimer);
   syncTimer = setInterval(doPoll, 2500);
   doPoll();
-  if(Notification && Notification.permission === 'granted') subscribeToPushNotifications();
+  if(('Notification' in window) && Notification.permission === 'granted' && !isNotifyExplicitlyDisabled()) subscribeToPushNotifications().then(updateNotifyBtn);
 }
 function stopSync(){ if(syncTimer){ clearInterval(syncTimer); syncTimer = null; } syncTopic = null; }
 
@@ -7500,8 +7500,8 @@ function urlBase64ToUint8Array(base64String){
 }
 
 async function subscribeToPushNotifications(){
-  if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  if(mode !== 'pvp' || !myPlayerNum || !syncTopic) return; // push is tied to a specific room
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  if(mode !== 'pvp' || !myPlayerNum || !syncTopic) return false; // push is tied to a specific room
   try{
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
@@ -7511,21 +7511,24 @@ async function subscribeToPushNotifications(){
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
       });
     }
-    // Publish the subscription straight to a small ntfy.sh topic dedicated to
-    // this room+player, instead of a Netlify Function -- this app has no
-    // database, and ntfy (already used for syncing moves) doubles as a tiny,
-    // free place for the notify-turn function to look this up later.
     const roomCode = syncTopic.replace(TOPIC_PREFIX, '');
-    await fetch(`https://ntfy.sh/beastchain-push-${roomCode}-${myPlayerNum}`, {
+    const res = await fetch(`https://ntfy.sh/beastchain-push-${roomCode}-${myPlayerNum}`, {
       method: 'POST',
       body: JSON.stringify(sub)
     });
+    lastPushSubscribeError = res.ok ? '' : ('ntfy publish failed: ' + res.status);
+    return res.ok;
   }catch(e){
     // Push isn't available here (unsupported browser, functions not deployed
     // yet, permission changed, etc). The app already falls back to the
-    // in-app notification system, so there's nothing more to do.
+    // in-app notification system, so there's nothing more to do -- but keep
+    // the error around so it's inspectable from the console if needed
+    // (window.lastPushSubscribeError) instead of vanishing silently.
+    lastPushSubscribeError = String(e && e.message || e);
+    return false;
   }
 }
+let lastPushSubscribeError = '';
 
 function sendPushToOpponent(){
   if(mode !== 'pvp' || !myPlayerNum || !syncTopic) return;
@@ -7545,21 +7548,53 @@ function sendPushToOpponent(){
   }).catch(() => { /* best-effort only; local fallback notification still applies on the other end */ });
 }
 
-function updateNotifyBtn(){
+const NOTIFY_DISABLED_KEY = 'beastchain_notify_disabled';
+function isNotifyExplicitlyDisabled(){ try{ return localStorage.getItem(NOTIFY_DISABLED_KEY) === '1'; }catch(e){ return false; } }
+function setNotifyExplicitlyDisabled(v){ try{ localStorage.setItem(NOTIFY_DISABLED_KEY, v ? '1' : '0'); }catch(e){} }
+
+async function updateNotifyBtn(){
   if(!('Notification' in window)){ notifyBtn.style.display = 'none'; return; }
-  if(Notification.permission === 'granted'){
-    notifyBtn.style.display = 'none';
-  } else if(Notification.permission === 'denied'){
-    notifyBtn.style.display = 'none';
+  if(Notification.permission === 'denied'){ notifyBtn.style.display = 'none'; return; }
+  notifyBtn.style.display = 'inline-block';
+  let subscribed = false;
+  try{
+    if('serviceWorker' in navigator && 'PushManager' in window){
+      const reg = await navigator.serviceWorker.getRegistration();
+      if(reg){
+        const sub = await reg.pushManager.getSubscription();
+        subscribed = !!sub;
+      }
+    }
+  }catch(e){ /* treat as not subscribed */ }
+  const labelEl = document.getElementById('notifyBtnLabel');
+  if(subscribed){
+    if(labelEl) labelEl.textContent = uiLang==='nl' ? 'Meldingen uit' : 'Turn off notifications';
+    notifyBtn.dataset.subscribed = '1';
   } else {
-    notifyBtn.style.display = 'inline-block';
+    if(labelEl) labelEl.textContent = uiLang==='nl' ? 'Meldingen aan' : 'Turn on notifications';
+    notifyBtn.dataset.subscribed = '';
   }
 }
 notifyBtn.addEventListener('click', async () => {
   if(!('Notification' in window)) return;
+  if(notifyBtn.dataset.subscribed === '1'){
+    try{
+      if('serviceWorker' in navigator){
+        const reg = await navigator.serviceWorker.getRegistration();
+        if(reg){
+          const sub = await reg.pushManager.getSubscription();
+          if(sub) await sub.unsubscribe();
+        }
+      }
+    }catch(e){ /* ignore */ }
+    setNotifyExplicitlyDisabled(true);
+    updateNotifyBtn();
+    return;
+  }
+  setNotifyExplicitlyDisabled(false);
   try{ await Notification.requestPermission(); }catch(e){}
+  if(Notification.permission === 'granted') await subscribeToPushNotifications();
   updateNotifyBtn();
-  if(Notification.permission === 'granted') subscribeToPushNotifications();
 });
 
 function notifyMyTurn(){
