@@ -415,6 +415,13 @@
     background: var(--rust); border-radius:999px; padding:6px 12px 6px 8px; display:flex; align-items:center; gap:6px;
     box-shadow:0 2px 6px rgba(0,0,0,.2); border:none; cursor:pointer;
   }
+  .capirun-btn.capirun-suggest{
+    animation: capirunPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes capirunPulse{
+    0%, 100% { box-shadow:0 2px 6px rgba(0,0,0,.2), 0 0 0 0 rgba(156,74,28,.55); }
+    50% { box-shadow:0 2px 6px rgba(0,0,0,.2), 0 0 0 6px rgba(156,74,28,0); }
+  }
   .capirun-btn-label{ font-family:'Fraunces', serif; font-weight:700; font-size:11px; color:#faf5e6; }
   .capirun-btn-sprite{ width:28px; height:22px; image-rendering:pixelated; overflow:hidden; position:relative; background-image:url('game-assets/capy_run_sheet.png'); background-repeat:no-repeat; background-position:0px -6px; background-size:140px 34px; }
 
@@ -7131,20 +7138,27 @@ function updateTurnBanner(){
       : (uiLang==='nl' ? (escapeHtml(nameForPlayer(turnNum)) + ' is aan de beurt') : (escapeHtml(nameForPlayer(turnNum)) + "'s turn")));
     return;
   }
-  if(mode !== 'pvp' || myPlayerNum === null){ turnBannerEl.style.display = 'none'; return; }
+  if(mode !== 'pvp' || myPlayerNum === null){ turnBannerEl.style.display = 'none'; setCapiRunSuggest(false); return; }
   turnBannerEl.style.display = 'block';
   turnBannerEl.classList.remove('p2','done');
-  if(over){ turnBannerEl.textContent = resultMsg || (gameLang==='nl' ? 'Spel afgelopen.' : 'Game over.'); turnBannerEl.classList.add('done'); return; }
+  if(over){ turnBannerEl.textContent = resultMsg || (gameLang==='nl' ? 'Spel afgelopen.' : 'Game over.'); turnBannerEl.classList.add('done'); setCapiRunSuggest(false); return; }
   if(turnNum === myPlayerNum){
     turnBannerEl.innerHTML = penIconSvg + (skipPending
       ? (uiLang==='nl' ? 'Jouw beurt — vind er één en verdien +1 bonuspunt!' : 'Your turn — find one and earn +1 bonus point!')
       : (uiLang==='nl' ? 'Jouw beurt — schrijf je dier op' : 'Your turn — write your animal'));
     inputEl.disabled = false; sendBtn.disabled = false;
+    setCapiRunSuggest(false);
   } else {
     turnBannerEl.textContent = (uiLang==='nl' ? '⏳ Wachten op ' : '⏳ Waiting for ') + nameForPlayer(turnNum) + '…';
     turnBannerEl.classList.add('p2');
     inputEl.disabled = true; sendBtn.disabled = true;
+    setCapiRunSuggest(true);
   }
+}
+function setCapiRunSuggest(on){
+  const btn = document.getElementById('capiRunOpenBtn');
+  if(!btn) return;
+  btn.classList.toggle('capirun-suggest', !!on);
 }
 
 function showLobbyError(msg){ lobbyErrorEl.textContent = msg; lobbyErrorEl.style.display = 'block'; }
@@ -7908,7 +7922,7 @@ checkForInviteLink();
 
   const GROUND_Y = 34; // px vanaf de onderkant van het speelveld
   const GRAVITY = 1500; // px/s^2
-  const JUMP_VELOCITY = 620; // px/s, omhoog
+  const JUMP_VELOCITY = 400; // px/s, omhoog
   const CAPY_LEFT = 15; // % vanaf links
   const CAPY_WIDTH = 56, CAPY_HEIGHT = 68;
   const CAPY_FRAME_STEP = 56; // 28px bronbeeld x2 (scherpte)
@@ -7919,6 +7933,7 @@ checkForInviteLink();
   let y = 0, vy = 0, onGround = true;
   let obstacles = []; // {el, x, width}
   let lastTime = 0, spawnTimer = 0, nextSpawnAt = 900, animTimer = 0, animFrame = 0;
+  let pendingDoubleSpawnAt = null;
   let score = 0, best = 0;
   let stageWidthPx = 360;
   let rafId = null;
@@ -7936,10 +7951,12 @@ checkForInviteLink();
     stageWidthPx = stage.getBoundingClientRect().width || 360;
     resetGame();
     bestEl.textContent = String(best).padStart(5,'0');
+    openBtn.classList.remove('capirun-suggest');
   }
   function closeCapiRun(){
     modal.style.display = 'none';
     stopLoop();
+    if(typeof updateTurnBanner === 'function') updateTurnBanner(); // zet het randje weer aan als er nog steeds gewacht wordt
   }
   function resetGame(){
     obstaclesEl.innerHTML = '';
@@ -7947,6 +7964,7 @@ checkForInviteLink();
     y = 0; vy = 0; onGround = true;
     score = 0; scoreEl.textContent = '00000';
     spawnTimer = 0; nextSpawnAt = 900 + Math.random()*400;
+    pendingDoubleSpawnAt = null;
     animTimer = 0; animFrame = 0;
     gameOverEl.style.display = 'none';
     startEl.style.display = 'flex';
@@ -8018,11 +8036,21 @@ checkForInviteLink();
       spawnTimer = 0;
       nextSpawnAt = Math.max(500, 1000 - score*0.05) + Math.random()*500;
       spawnObstacle();
+      // Na een tijdje spelen af en toe twee obstakels vlak na elkaar, voor
+      // wat meer afwisseling zodra het spel al een tijdje bezig is.
+      if(score > 800 && Math.random() < 0.25){
+        pendingDoubleSpawnAt = 260 + Math.random()*120;
+      }
+    }
+    if(pendingDoubleSpawnAt !== null){
+      pendingDoubleSpawnAt -= dt * 1000;
+      if(pendingDoubleSpawnAt <= 0){
+        spawnObstacle();
+        pendingDoubleSpawnAt = null;
+      }
     }
     const capyLeftPx = stageWidthPx * (CAPY_LEFT/100);
     const capyRightPx = capyLeftPx + CAPY_WIDTH;
-    const capyBottom = GROUND_Y + y; // hoogte van de voeten boven de grond
-    const capyTop = capyBottom + CAPY_HEIGHT;
     for(let i = obstacles.length - 1; i >= 0; i--){
       const ob = obstacles[i];
       const prevX = ob.x;
@@ -8041,7 +8069,12 @@ checkForInviteLink();
       const obLeftPrev = prevX, obRightPrev = prevX + ob.width;
       const movedThrough = (obRightPrev >= capyLeftPx && obLeftPrev <= capyRightPx) ||
                             (obRightNow  >= capyLeftPx && obLeftNow  <= capyRightPx);
-      const overlapY = capyBottom < ob.height - 4; // 4px speling voor een natuurlijker gevoel
+      // Belangrijk: hier moet de sprong-hóógte (y, 0 = op de grond) vergeleken
+      // worden met de hoogte van het obstakel -- niet de voetpositie inclusief
+      // de vaste grondafstand (GROUND_Y). Die eerdere versie zorgde dat lagere
+      // obstakels nooit een botsing konden geven, ook niet als je er recht
+      // doorheen rende zonder te springen.
+      const overlapY = y < ob.height - 6; // kleine speling voor een natuurlijker gevoel
       if(movedThrough && overlapY){
         endGame();
         return;
