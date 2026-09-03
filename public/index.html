@@ -6972,37 +6972,36 @@ refreshGamesBtn.addEventListener('click', () => {
   });
 });
 
+const SYNC_WORKER_BASE = 'https://beastchain-notify.cornedewaard.workers.dev';
 async function ntfyPublish(topic, stateStr){
   try{
-    const res = await fetch('https://ntfy.sh/' + topic, { method: 'POST', body: stateStr });
+    const res = await fetch(SYNC_WORKER_BASE + '/sync-publish', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ roomCode: topic, state: stateStr })
+    });
     if(!res.ok){
-      showPushDebugToast('versturen mislukt: HTTP ' + res.status + (res.status === 429 ? ' (limiet bereikt bij ntfy.sh)' : ''));
+      showPushDebugToast('versturen mislukt: HTTP ' + res.status);
       return false;
     }
+    const data = await res.json();
+    if(!data.ok){ showPushDebugToast('versturen mislukt: ' + (data.error || 'onbekende fout')); return false; }
     return true;
   }
   catch(e){ showPushDebugToast('versturen mislukt: netwerkfout: ' + (e && e.message || e)); return false; }
 }
 async function ntfyPollBest(topic){
-  const since = Math.floor(Date.now()/1000) - 21600;
-  const url = 'https://ntfy.sh/' + topic + '/json?poll=1&since=' + since;
   let res;
-  try{ res = await fetch(url); }catch(e){ lastSyncFailDetail = 'netwerkfout: ' + (e && e.message || e); return undefined; }
-  if(!res || !res.ok){ lastSyncFailDetail = 'HTTP ' + (res ? res.status : '?') + (res && res.status === 429 ? ' (limiet bereikt bij ntfy.sh)' : ''); return undefined; }
-  let text;
-  try{ text = await res.text(); }catch(e){ lastSyncFailDetail = 'kon antwoord niet lezen: ' + (e && e.message || e); return undefined; }
+  try{ res = await fetch(SYNC_WORKER_BASE + '/sync-poll?room=' + encodeURIComponent(topic)); }
+  catch(e){ lastSyncFailDetail = 'netwerkfout: ' + (e && e.message || e); return undefined; }
+  if(!res || !res.ok){ lastSyncFailDetail = 'HTTP ' + (res ? res.status : '?'); return undefined; }
+  let data;
+  try{ data = await res.json(); }catch(e){ lastSyncFailDetail = 'kon antwoord niet lezen: ' + (e && e.message || e); return undefined; }
+  if(!data.ok){ lastSyncFailDetail = data.error || 'onbekende fout'; return undefined; }
   lastSyncFailDetail = '';
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  let best2 = null;
-  for(const line of lines){
-    let obj;
-    try{ obj = JSON.parse(line); }catch(e){ continue; }
-    if(obj.event !== 'message' || typeof obj.message !== 'string') continue;
-    let parsed;
-    try{ parsed = decodeState(obj.message); }catch(e){ continue; }
-    if(!best2 || parsed.c.length > best2.c.length) best2 = parsed;
-  }
-  return best2;
+  if(!data.state) return null; // niets gepubliceerd voor deze kamer, nog geen fout
+  try{ return decodeState(data.state); }
+  catch(e){ lastSyncFailDetail = 'kon spelstand niet lezen'; return undefined; }
 }
 let lastSyncFailDetail = '';
 async function publishState(){
