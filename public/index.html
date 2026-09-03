@@ -405,12 +405,18 @@
   .handoff-turn-name{ font-family:'Fraunces', serif; font-weight:700; font-size:25px; color: var(--rust); margin-bottom:20px; }
 
   /* ---------- CapiRun mini-game ---------- */
+  .notify-icon-btn{
+    flex:0 0 auto; width:30px; height:30px; padding:0; border-radius:999px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    background: transparent; border:1px solid var(--border); color: var(--ink-dim);
+  }
+  .notify-icon-btn[data-subscribed="1"]{ background: var(--rust); border-color: var(--rust); color:#faf5e6; }
   .capirun-btn{
     background: var(--rust); border-radius:999px; padding:6px 12px 6px 8px; display:flex; align-items:center; gap:6px;
     box-shadow:0 2px 6px rgba(0,0,0,.2); border:none; cursor:pointer;
   }
   .capirun-btn-label{ font-family:'Fraunces', serif; font-weight:700; font-size:11px; color:#faf5e6; }
-  .capirun-btn-sprite{ width:24px; height:20px; image-rendering:pixelated; overflow:hidden; position:relative; background-image:url('game-assets/capy_run_sheet.png'); background-repeat:no-repeat; background-size:140px 20px; }
+  .capirun-btn-sprite{ width:28px; height:22px; image-rendering:pixelated; overflow:hidden; position:relative; background-image:url('game-assets/capy_run_sheet.png'); background-repeat:no-repeat; background-position:0px -6px; background-size:140px 34px; }
 
   .capirun-card{
     position:relative; width:100%; max-width:400px; background: var(--card);
@@ -428,9 +434,9 @@
   .capirun-score{ font-family:'DM Sans', monospace; font-weight:700; font-size:16px; color: var(--ink); text-align:right; }
   .capirun-best{ font-family:'DM Sans', monospace; font-size:8.5px; color: var(--rust); text-align:right; letter-spacing:.5px; }
   .capirun-capy{
-    position:absolute; left:15%; width:52px; height:34px; image-rendering:pixelated;
+    position:absolute; left:15%; width:56px; height:68px; image-rendering:pixelated;
     background-image:url('game-assets/capy_run_sheet.png'); background-repeat:no-repeat;
-    background-size:280px 68px; /* 5 beeldjes van 28px, x2 voor scherpte */
+    background-size:280px 68px; /* 5 beeldjes van 28x34px, exact x2 voor scherpte */
     z-index:3;
   }
   .capirun-obstacle{ position:absolute; image-rendering:pixelated; z-index:2; }
@@ -439,12 +445,14 @@
     background: rgba(240,230,207,.85); z-index:6; font-family:'Lora', serif; font-style:italic; font-size:12px; color: var(--ink);
     text-align:center; padding:20px;
   }
-  .capirun-gameover-title{ font-family:'Fraunces', serif; font-weight:700; font-style:normal; font-size:18px; color: var(--rust); margin-bottom:6px; }
+  .capirun-gameover-title{ margin-bottom:6px; }
+  .capirun-gameover-title img{ height:34px; image-rendering:pixelated; }
   .capirun-jumpbtn{
-    width:100%; margin-top:12px; background: var(--ink); color:#f4ecd8; border:none; border-radius:10px;
-    padding:14px; font-family:'DM Sans', sans-serif; font-weight:700; font-size:14px; cursor:pointer;
+    width:100%; margin-top:12px; background: var(--rust); color:#faf5e6; border:none; border-radius:14px;
+    padding:16px; font-family:'DM Sans', sans-serif; font-weight:700; font-size:15px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 0 #6b3010;
   }
-  .capirun-jumpbtn:active{ transform: scale(.97); }
+  .capirun-jumpbtn:active{ transform: translateY(2px); box-shadow:0 2px 0 #6b3010; }
 
   .invite-card{
     position:relative; width:100%; max-width:350px; background: var(--card);
@@ -773,11 +781,13 @@
     <button class="mode-btn install-btn" id="installBtn" style="display:none;flex:0 0 auto;">⬇ Installeer</button>
     <button class="mode-btn" id="nameBtn" style="flex:0 0 auto;">✎ Naam</button>
     <button class="mode-btn" id="favBtn" style="flex:0 0 auto;">🐾 Lievelingsdier</button>
+    <button class="notify-icon-btn" id="notifyBtn" data-dynamic-text="1" style="display:none;" title="Meldingen">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg>
+    </button>
     <button class="capirun-btn" id="capiRunOpenBtn" style="margin-left:auto;flex:0 0 auto;">
       <span class="capirun-btn-sprite" id="capiRunBtnSprite"></span>
       <span class="capirun-btn-label">CapiRun</span>
     </button>
-    <button class="mode-btn" id="notifyBtn" data-dynamic-text="1" style="flex:0 0 auto;display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg> <span id="notifyBtnLabel">Meldingen aan</span></button>
   </div>
   <div id="notifyHint" style="display:none;text-align:center;font-family:'Lora',serif;font-style:italic;font-size:10px;color:var(--ink-dim);margin-top:-2px;margin-bottom:6px;"></div>
 
@@ -849,7 +859,7 @@
 
   <div id="capiRunModal" class="modal-overlay" style="display:none;">
     <div class="capirun-card">
-      <button class="lightbox-close" id="capiRunCloseBtn" style="position:absolute;top:10px;right:10px;">×</button>
+      <button class="lightbox-close" id="capiRunCloseBtn" style="position:absolute;top:10px;right:10px;z-index:20;">×</button>
       <div class="capirun-stage" id="capiRunStage">
         <img class="capirun-bg" src="game-assets/Achtergrond.gif" alt="">
         <div class="capirun-hud"><div class="capirun-hud-inner">
@@ -859,14 +869,14 @@
         <div class="capirun-capy" id="capiRunCapy"></div>
         <div id="capiRunObstacles"></div>
         <div class="capirun-gameover" id="capiRunGameOver" style="display:none;">
-          <div class="capirun-gameover-title" id="capiRunGameOverTitle">Game over!</div>
+          <div class="capirun-gameover-title" id="capiRunGameOverTitle"><img src="game-assets/gameover_text.png" alt="Game over"></div>
           <div class="capirun-gameover-sub" id="capiRunGameOverSub"></div>
         </div>
         <div class="capirun-start" id="capiRunStart">
           <div id="capiRunStartLabel">Tik op springen om te beginnen</div>
         </div>
       </div>
-      <button class="capirun-jumpbtn" id="capiRunJumpBtn">⬆ <span id="capiRunJumpLabel">Springen</span></button>
+      <button class="capirun-jumpbtn" id="capiRunJumpBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="15" rx="6" ry="5"/><circle cx="6" cy="8" r="2.2"/><circle cx="10.5" cy="5.5" r="2.2"/><circle cx="15.5" cy="5.5" r="2.2"/><circle cx="19" cy="9" r="2"/></svg> <span id="capiRunJumpLabel">Springen</span></button>
     </div>
   </div>
 
@@ -1526,7 +1536,6 @@ const UI_STRINGS = {
   achievementsEmpty: { nl:'Nog geen ontdekkingen — begin met spelen!', en:'No discoveries yet — start playing!' },
   revealEmpty:       { nl:'Klik op een dier in de ketting voor een foto en een weetje.', en:'Click an animal in the chain for a photo and a fact.' },
   favBtn:            { nl:'🐾 Lievelingsdier', en:'🐾 Favourite animal' },
-  notifyBtnLabel:    { nl:'Meldingen aan', en:'Turn on notifications' },
   nameBtn:           { nl:'✎ Naam', en:'✎ Name' },
   gamesListLabel:    { nl:'Jouw lopende spellen:', en:'Your ongoing games:' },
   pvpIntroP:         { nl:'Speler 1 start een spel en deelt de kamercode één keer. Daarna synchroniseren jullie automatisch na elke zet.', en:'Player 1 starts a game and shares the room code once. After that, it syncs automatically after every move.' },
@@ -7678,7 +7687,7 @@ async function updateNotifyBtn(){
   const hintEl2 = document.getElementById('notifyHint');
   if(!('Notification' in window)){ notifyBtn.style.display = 'none'; if(hintEl2) hintEl2.style.display = 'none'; return; }
   if(Notification.permission === 'denied'){ notifyBtn.style.display = 'none'; if(hintEl2) hintEl2.style.display = 'none'; return; }
-  notifyBtn.style.display = 'inline-block';
+  notifyBtn.style.display = 'flex';
   let subscribed = false;
   try{
     if('serviceWorker' in navigator && 'PushManager' in window){
@@ -7689,13 +7698,12 @@ async function updateNotifyBtn(){
       }
     }
   }catch(e){ /* treat as not subscribed */ }
-  const labelEl = document.getElementById('notifyBtnLabel');
   if(subscribed){
-    if(labelEl) labelEl.textContent = uiLang==='nl' ? 'Meldingen uit' : 'Turn off notifications';
     notifyBtn.dataset.subscribed = '1';
+    notifyBtn.title = uiLang==='nl' ? 'Meldingen uit' : 'Turn off notifications';
   } else {
-    if(labelEl) labelEl.textContent = uiLang==='nl' ? 'Meldingen aan' : 'Turn on notifications';
     notifyBtn.dataset.subscribed = '';
+    notifyBtn.title = uiLang==='nl' ? 'Meldingen aan' : 'Turn on notifications';
   }
   // Subscribing only actually takes effect once you're in a live 2-player
   // game (it needs a room to attach to) -- show a small explanatory line
@@ -7902,7 +7910,7 @@ checkForInviteLink();
   const GRAVITY = 1500; // px/s^2
   const JUMP_VELOCITY = 620; // px/s, omhoog
   const CAPY_LEFT = 15; // % vanaf links
-  const CAPY_WIDTH = 52, CAPY_HEIGHT = 34;
+  const CAPY_WIDTH = 56, CAPY_HEIGHT = 68;
   const CAPY_FRAME_STEP = 56; // 28px bronbeeld x2 (scherpte)
   const FRAME_COUNT = 5;
   const RUN_FRAME_MS = 90;
@@ -7916,9 +7924,9 @@ checkForInviteLink();
   let rafId = null;
 
   const OBSTACLE_FILES = [
-    { file:'rock_tallA.png', w:34 }, { file:'rock_tallB.png', w:34 }, { file:'rock_tallF.png', w:26 },
-    { file:'tree_detailed.png', w:26 }, { file:'tree_fat_fall.png', w:28 },
-    { file:'tree_palmDetailedShort.png', w:32 }, { file:'tree_plateau_dark.png', w:26 }
+    { file:'rock_tallA.png', w:34, h:41 }, { file:'rock_tallB.png', w:34, h:36 }, { file:'rock_tallF.png', w:26, h:31 },
+    { file:'tree_detailed.png', w:26, h:47 }, { file:'tree_fat_fall.png', w:28, h:43 },
+    { file:'tree_palmDetailedShort.png', w:32, h:35 }, { file:'tree_plateau_dark.png', w:26, h:48 }
   ];
 
   try{ best = parseInt(localStorage.getItem(CAPIRUN_BEST_KEY), 10) || 0; }catch(e){ best = 0; }
@@ -7976,7 +7984,7 @@ checkForInviteLink();
     el.style.bottom = GROUND_Y + 'px';
     el.style.left = stageWidthPx + 'px';
     obstaclesEl.appendChild(el);
-    obstacles.push({ el, x: stageWidthPx, width: def.w });
+    obstacles.push({ el, x: stageWidthPx, width: def.w, height: def.h });
   }
 
   function loop(now){
@@ -8012,8 +8020,12 @@ checkForInviteLink();
       spawnObstacle();
     }
     const capyLeftPx = stageWidthPx * (CAPY_LEFT/100);
+    const capyRightPx = capyLeftPx + CAPY_WIDTH;
+    const capyBottom = GROUND_Y + y; // hoogte van de voeten boven de grond
+    const capyTop = capyBottom + CAPY_HEIGHT;
     for(let i = obstacles.length - 1; i >= 0; i--){
       const ob = obstacles[i];
+      const prevX = ob.x;
       ob.x -= speed * dt;
       ob.el.style.left = ob.x + 'px';
       if(ob.x + ob.width < 0){
@@ -8021,12 +8033,16 @@ checkForInviteLink();
         obstacles.splice(i,1);
         continue;
       }
-      // eenvoudige botsingscontrole
-      const capyBottom = GROUND_Y + y;
-      const obstacleHeight = ob.el.getBoundingClientRect().height || 30;
-      const overlapX = (ob.x < capyLeftPx + CAPY_WIDTH - 10) && (ob.x + ob.width > capyLeftPx + 8);
-      const overlapY = capyBottom < obstacleHeight - 6;
-      if(overlapX && overlapY){
+      // Controleer niet alleen de positie NA deze stap, maar of het obstakel
+      // tijdens de beweging van deze stap door de capibara heen is geschoven
+      // -- zonder dit kan een obstakel bij hoge snelheid soms in één enkele
+      // rekenstap "overgeslagen" worden.
+      const obLeftNow = ob.x, obRightNow = ob.x + ob.width;
+      const obLeftPrev = prevX, obRightPrev = prevX + ob.width;
+      const movedThrough = (obRightPrev >= capyLeftPx && obLeftPrev <= capyRightPx) ||
+                            (obRightNow  >= capyLeftPx && obLeftNow  <= capyRightPx);
+      const overlapY = capyBottom < ob.height - 4; // 4px speling voor een natuurlijker gevoel
+      if(movedThrough && overlapY){
         endGame();
         return;
       }
@@ -8046,7 +8062,7 @@ checkForInviteLink();
       try{ localStorage.setItem(CAPIRUN_BEST_KEY, String(best)); }catch(e){}
     }
     bestEl.textContent = String(best).padStart(5,'0');
-    gameOverTitleEl.textContent = uiLang === 'nl' ? 'Game over!' : 'Game over!';
+    // titel is nu een vaste afbeelding, geen tekst meer om taalafhankelijk te zetten
     gameOverSubEl.textContent = isNewBest
       ? (uiLang === 'nl' ? '★ Nieuwe topscore! ★' : '★ New high score! ★')
       : (uiLang === 'nl' ? 'Tik op springen om opnieuw te proberen' : 'Tap jump to try again');
@@ -8067,7 +8083,7 @@ checkForInviteLink();
   setInterval(() => {
     if(!btnSpriteEl) return;
     btnFrame = (btnFrame + 1) % FRAME_COUNT;
-    btnSpriteEl.style.backgroundPosition = (-btnFrame * 28) + 'px 0px';
+    btnSpriteEl.style.backgroundPosition = (-btnFrame * 28) + 'px -6px';
   }, RUN_FRAME_MS);
 })();
 </script>
