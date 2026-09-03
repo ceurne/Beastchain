@@ -798,6 +798,8 @@
     </div>
   </div>
 
+  <div id="pushDebugToast" style="display:none; position:fixed; left:12px; right:12px; bottom:12px; z-index:9999; background:#26392c; color:#faf5e6; font-family:'DM Sans',sans-serif; font-size:11px; padding:12px 14px; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.4); line-height:1.5;"></div>
+
   <div id="handoffModal" class="modal-overlay" style="display:none;">
     <div class="handoff-card">
       <div id="handoffLastWrap">
@@ -7545,7 +7547,21 @@ function sendPushToOpponent(){
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ roomCode, opponentPlayerNum: opponentNum, title: 'BeastChain', body })
-  }).catch(() => { /* best-effort only; local fallback notification still applies on the other end */ });
+  })
+    .then(res => res.json().then(data => showPushDebugToast('HTTP ' + res.status + ': ' + JSON.stringify(data))))
+    .catch(e => showPushDebugToast('Netwerkfout: ' + (e && e.message || e)));
+}
+let pushDebugToastTimer = null;
+function showPushDebugToast(text){
+  // TEMPORARY debug aid (Sept 2026) to see exactly what the push send
+  // attempt returned, without needing to dig through Cloudflare's logs UI.
+  // Remove this once the locked-screen delivery issue is resolved.
+  const el = document.getElementById('pushDebugToast');
+  if(!el) return;
+  el.textContent = '📡 ' + text;
+  el.style.display = 'block';
+  if(pushDebugToastTimer) clearTimeout(pushDebugToastTimer);
+  pushDebugToastTimer = setTimeout(() => { el.style.display = 'none'; }, 15000);
 }
 
 const NOTIFY_DISABLED_KEY = 'beastchain_notify_disabled';
