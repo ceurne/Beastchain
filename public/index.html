@@ -7922,7 +7922,7 @@ checkForInviteLink();
 
   const GROUND_Y = 34; // px vanaf de onderkant van het speelveld
   const GRAVITY = 1500; // px/s^2
-  const JUMP_VELOCITY = 400; // px/s, omhoog
+  const JUMP_VELOCITY = 385; // px/s, omhoog
   const CAPY_LEFT = 15; // % vanaf links
   const CAPY_WIDTH = 56, CAPY_HEIGHT = 68;
   const CAPY_FRAME_STEP = 56; // 28px bronbeeld x2 (scherpte)
@@ -7939,9 +7939,9 @@ checkForInviteLink();
   let rafId = null;
 
   const OBSTACLE_FILES = [
-    { file:'rock_tallA.png', w:34, h:41 }, { file:'rock_tallB.png', w:34, h:36 }, { file:'rock_tallF.png', w:26, h:31 },
-    { file:'tree_detailed.png', w:26, h:47 }, { file:'tree_fat_fall.png', w:28, h:43 },
-    { file:'tree_palmDetailedShort.png', w:32, h:35 }, { file:'tree_plateau_dark.png', w:26, h:48 }
+    { file:'rock_tallA.png', w:30, h:36 }, { file:'rock_tallB.png', w:32, h:34 }, { file:'rock_tallF.png', w:26, h:31 },
+    { file:'tree_detailed.png', w:18, h:33 }, { file:'tree_fat_fall.png', w:22, h:33 },
+    { file:'tree_palmDetailedShort.png', w:30, h:33 }, { file:'tree_plateau_dark.png', w:17, h:31 }
   ];
 
   try{ best = parseInt(localStorage.getItem(CAPIRUN_BEST_KEY), 10) || 0; }catch(e){ best = 0; }
