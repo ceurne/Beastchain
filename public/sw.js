@@ -2,7 +2,7 @@
 // Bump this version whenever you upload a new build; the old cache is then
 // thrown away automatically so players get the new version instead of a
 // stale copy from their phone.
-const CACHE = 'beastchain-v2';
+const CACHE = 'beastchain-v3';
 
 const APP_SHELL = [
   './',
@@ -60,27 +60,28 @@ self.addEventListener('fetch', (event) => {
     (url.pathname === '/' || url.pathname.endsWith('/index.html') || url.pathname === '/index.html');
   const MIN_APP_SHELL_BYTES = 200000;
 
+  async function fetchAppShellWithRetries(attemptsLeft){
+    const res = await fetch(req, { cache: 'no-store' });
+    if(res && res.status === 200){
+      const buf = await res.clone().arrayBuffer();
+      if(buf.byteLength >= MIN_APP_SHELL_BYTES) return res;
+      // Truncated download. Usually a passing connection hiccup -- try again
+      // a couple of times before giving up, since a retry alone often just
+      // succeeds cleanly rather than needing to fall back to anything.
+      if(attemptsLeft > 0) return fetchAppShellWithRetries(attemptsLeft - 1);
+      const cachedGood = await caches.match('./index.html');
+      return cachedGood || res;
+    }
+    return res;
+  }
+
   // App shell: network first (so a fresh upload is picked up straight away),
   // falling back to the cached copy when offline or when the fetch itself
   // errors out.
   event.respondWith(
-    fetch(req)
-      .then(async (res) => {
+    (isAppShellDoc ? fetchAppShellWithRetries(2) : fetch(req))
+      .then((res) => {
         if (res && res.status === 200 && url.origin === self.location.origin) {
-          if (isAppShellDoc) {
-            // Read the body once to check its size before deciding whether
-            // to trust and cache it.
-            const buf = await res.clone().arrayBuffer();
-            if (buf.byteLength < MIN_APP_SHELL_BYTES) {
-              // Truncated download -- do NOT cache this broken copy. Try to
-              // serve a previously-good cached version instead; if there
-              // isn't one, fall through to returning this (broken) response
-              // since there's nothing better to offer.
-              const cachedGood = await caches.match('./index.html');
-              if (cachedGood) return cachedGood;
-              return res;
-            }
-          }
           const copy = res.clone();
           caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
         }
