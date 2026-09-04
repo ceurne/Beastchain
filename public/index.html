@@ -8097,6 +8097,13 @@ checkForInviteLink();
   }
 
   function spawnObstacle(){
+    // De breedte van het speelveld hier opnieuw meten, in plaats van te
+    // vertrouwen op de eenmalige meting bij het openen van het spel -- die
+    // bleek soms nog niet de definitieve breedte te zijn (bijvoorbeeld vlak
+    // na het openen, voor het venster zijn uiteindelijke afmeting had), wat
+    // obstakels ergens halverwege het scherm liet verschijnen in plaats van
+    // vanaf de echte rechterrand.
+    stageWidthPx = stage.getBoundingClientRect().width || stageWidthPx;
     const def = OBSTACLE_FILES[Math.floor(Math.random() * OBSTACLE_FILES.length)];
     const el = document.createElement('img');
     el.src = 'game-assets/' + def.file;
