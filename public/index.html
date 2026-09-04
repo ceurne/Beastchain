@@ -8018,6 +8018,13 @@ checkForInviteLink();
   const JUMP_VELOCITY = 420; // px/s, omhoog
   const CAPY_LEFT = 15; // % vanaf links
   const CAPY_WIDTH = 56, CAPY_HEIGHT = 68;
+  // Elk sprite-beeldje is 28px breed (56px op 2x), maar de daadwerkelijk
+  // zichtbare capibara erbinnen is maar zo'n 22px (44px op 2x) -- de rest is
+  // doorzichtige marge rondom. Voor de botsingsdetectie gebruiken we daarom
+  // een smallere breedte die dichter bij het zichtbare lijf blijft, in
+  // plaats van per ongeluk ook met onzichtbare lucht te "botsen".
+  const CAPY_HITBOX_WIDTH = 44;
+  const CAPY_HITBOX_OFFSET = (CAPY_WIDTH - CAPY_HITBOX_WIDTH) / 2;
   const CAPY_FRAME_STEP = 56; // 28px bronbeeld x2 (scherpte)
   const FRAME_COUNT = 5;
   const RUN_FRAME_MS = 90;
@@ -8160,8 +8167,8 @@ checkForInviteLink();
         pendingDoubleSpawnAt = null;
       }
     }
-    const capyLeftPx = stageWidthPx * (CAPY_LEFT/100);
-    const capyRightPx = capyLeftPx + CAPY_WIDTH;
+    const capyLeftPx = stageWidthPx * (CAPY_LEFT/100) + CAPY_HITBOX_OFFSET;
+    const capyRightPx = capyLeftPx + CAPY_HITBOX_WIDTH;
     for(let i = obstacles.length - 1; i >= 0; i--){
       const ob = obstacles[i];
       const prevX = ob.x;
@@ -8188,7 +8195,7 @@ checkForInviteLink();
       // de vaste grondafstand (GROUND_Y). Die eerdere versie zorgde dat lagere
       // obstakels nooit een botsing konden geven, ook niet als je er recht
       // doorheen rende zonder te springen.
-      const overlapY = y < ob.height - 10; // wat ruimere speling, voor een vergevingsgezinder gevoel
+      const overlapY = y < ob.height - 14; // nog wat ruimere speling
       if(movedThrough && overlapY){
         endGame();
         return;
