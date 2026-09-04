@@ -300,19 +300,23 @@
     border-radius:2px; font-family:'Special Elite', monospace; font-size:8px; color: var(--rust);
   }
 
-  .achievement-toast{
-    position:absolute; left:50%; top:64px; transform:translate(-50%,-16px);
-    background: var(--card); border:2px solid var(--rust); border-radius:50%/45%;
-    padding:14px 20px; text-align:center; color: var(--rust); z-index:30;
-    box-shadow: 0 10px 30px rgba(0,0,0,.4); opacity:0; pointer-events:none;
-    width:78%; max-width:300px; transform-origin:center;
-    animation: toastIn .4s ease forwards, toastHold 2.6s linear forwards, toastOut .4s ease 3s forwards;
+  .achievement-ribbon-overlay{
+    position:fixed; inset:0; z-index:200; opacity:0; pointer-events:none;
+    animation: ribbonOverlayIn .3s ease forwards, ribbonOverlayHold 3.2s linear forwards, ribbonOverlayOut .35s ease 3.5s forwards;
   }
-  .achievement-toast .t1{ font-family:'Fraunces', serif; font-weight:700; font-size:15px; margin-bottom:4px; }
-  .achievement-toast .t2{ font-family:'Special Elite', monospace; font-size:9.5px; color: var(--ink-dim); }
-  @keyframes toastIn{ from{opacity:0; transform:translate(-50%,-50%) rotate(-8deg) scale(.7);} to{opacity:1; transform:translate(-50%,-50%) rotate(-3deg) scale(1);} }
-  @keyframes toastHold{ from{opacity:1;} to{opacity:1;} }
-  @keyframes toastOut{ from{opacity:1; transform:translate(-50%,-50%) rotate(-3deg) scale(1);} to{opacity:0; transform:translate(-50%,-60%) rotate(-3deg) scale(.9);} }
+  .achievement-ribbon-overlay.dismissing{ animation: ribbonOverlayOut .25s ease forwards !important; }
+  @keyframes ribbonOverlayIn{ from{opacity:0;} to{opacity:1; pointer-events:auto;} }
+  @keyframes ribbonOverlayHold{ from{opacity:1; pointer-events:auto;} to{opacity:1; pointer-events:auto;} }
+  @keyframes ribbonOverlayOut{ from{opacity:1;} to{opacity:0; pointer-events:none;} }
+  .achievement-ribbon{
+    position:fixed; top:18px; left:50%; transform:translateX(-50%) scale(.85);
+    width:88%; max-width:340px; filter:drop-shadow(0 6px 12px rgba(0,0,0,.4));
+    animation: ribbonPopIn .4s cubic-bezier(.2,.9,.3,1.3) forwards;
+  }
+  @keyframes ribbonPopIn{ from{transform:translateX(-50%) scale(.6); opacity:0;} to{transform:translateX(-50%) scale(1); opacity:1;} }
+  .achievement-ribbon svg{ width:100%; display:block; }
+  .achievement-ribbon .rib-title{ font-family:'Fraunces', serif; font-weight:700; }
+  .achievement-ribbon .rib-sub{ font-family:'DM Sans', sans-serif; font-weight:700; letter-spacing:2px; }
 
   .reveal-panel{
     background: var(--card); border-radius:12px;
@@ -455,11 +459,23 @@
   .capirun-gameover-title{ margin-bottom:6px; }
   .capirun-gameover-title img{ height:34px; image-rendering:pixelated; }
   .capirun-jumpbtn{
-    width:100%; margin-top:12px; background: var(--rust); color:#faf5e6; border:none; border-radius:14px;
-    padding:16px; font-family:'DM Sans', sans-serif; font-weight:700; font-size:15px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 0 #6b3010;
+    width:104px; height:104px; margin:16px auto 4px; background: var(--rust); color:#faf5e6; border-radius:50%;
+    border:4px solid #faf5e6; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    box-shadow:0 6px 16px rgba(0,0,0,.35); overflow:hidden;
   }
-  .capirun-jumpbtn:active{ transform: translateY(2px); box-shadow:0 2px 0 #6b3010; }
+  .capirun-jumpbtn:active{ transform: translateY(2px); box-shadow:0 3px 10px rgba(0,0,0,.35); }
+  .capirun-jumpbtn-sprite{
+    width:56px; height:68px; image-rendering:pixelated; background-image:url('game-assets/capy_run_sheet.png');
+    background-repeat:no-repeat; background-position:-56px -6px; background-size:280px 68px;
+    transform:scale(.62); margin-bottom:-14px;
+    animation: capiJumpBtnBounce 0.9s ease-in-out infinite;
+  }
+  @keyframes capiJumpBtnBounce{
+    0%, 100% { transform:scale(.62) translateY(0); }
+    35% { transform:scale(.62) translateY(-9px); }
+    55% { transform:scale(.62) translateY(-9px); }
+  }
+  .capirun-jumpbtn-label{ font-family:'Fraunces', serif; font-weight:700; font-size:11px; letter-spacing:.5px; }
 
   .invite-card{
     position:relative; width:100%; max-width:350px; background: var(--card);
@@ -883,7 +899,7 @@
           <div id="capiRunStartLabel">Tik op springen om te beginnen</div>
         </div>
       </div>
-      <button class="capirun-jumpbtn" id="capiRunJumpBtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="15" rx="6" ry="5"/><circle cx="6" cy="8" r="2.2"/><circle cx="10.5" cy="5.5" r="2.2"/><circle cx="15.5" cy="5.5" r="2.2"/><circle cx="19" cy="9" r="2"/></svg> <span id="capiRunJumpLabel">Springen</span></button>
+      <button class="capirun-jumpbtn" id="capiRunJumpBtn"><div class="capirun-jumpbtn-sprite"></div><span class="capirun-jumpbtn-label" id="capiRunJumpLabel">SPRING</span></button>
     </div>
   </div>
 
@@ -1746,12 +1762,42 @@ function awardAchievement(playerKey, catId, tier, entryName){
     recordGlobalAchievement(catId, tier, def[tier].n, def);
   }
 
-  if(suppressFx) return;
-  const toast = document.createElement('div');
-  toast.className = 'achievement-toast';
-  toast.innerHTML = `<div class="t1">${TIER_ICON[tier]} ${def[tier].label}</div><div class="t2">${def.name}</div>`;
-  bookEl.appendChild(toast);
-  setTimeout(() => toast.remove(), 3800);
+  // De lint-melding verschijnt alleen bij de speler die de prestatie zelf
+  // heeft behaald, niet bij de tegenstander wanneer diens winst via
+  // synchronisatie binnenkomt.
+  if(suppressFx || !isLocalPlayer(playerKey)) return;
+  showAchievementRibbon(TIER_ICON[tier], def[tier].label, def.name);
+}
+
+function showAchievementRibbon(tierIconHtml, titleText, subText){
+  const overlay = document.createElement('div');
+  overlay.className = 'achievement-ribbon-overlay';
+  const ribbon = document.createElement('div');
+  ribbon.className = 'achievement-ribbon';
+  ribbon.innerHTML = `<svg viewBox="0 0 640 110" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="0,30 130,30 130,80 0,80 25,55" fill="#9c4a1c"/>
+    <polygon points="45,30 130,30 130,80 45,80 70,55" fill="#6b3010"/>
+    <polygon points="640,30 510,30 510,80 640,80 615,55" fill="#9c4a1c"/>
+    <polygon points="595,30 510,30 510,80 595,80 570,55" fill="#6b3010"/>
+    <rect x="100" y="20" width="440" height="70" rx="6" fill="#9c4a1c"/>
+    <text x="320" y="50" text-anchor="middle" class="rib-title" font-size="26" fill="#faf5e6">${escapeHtml(tierIconHtml)} ${escapeHtml(titleText)}</text>
+    <text x="320" y="72" text-anchor="middle" class="rib-sub" font-size="12" fill="#f4ecd8" opacity="0.9">${escapeHtml(subText.toUpperCase())}</text>
+  </svg>`;
+  overlay.appendChild(ribbon);
+  document.body.appendChild(overlay);
+
+  let removed = false;
+  function dismiss(){
+    if(removed) return;
+    removed = true;
+    overlay.classList.add('dismissing');
+    setTimeout(() => overlay.remove(), 260);
+  }
+  // Tikken/klikken ergens buiten het lint zelf sluit de melding meteen.
+  overlay.addEventListener('click', (e) => {
+    if(e.target === overlay) dismiss();
+  });
+  setTimeout(dismiss, 3850); // valt anders vanzelf weg, zelfde tempo als de animatie hierboven
 }
 
 // "the local player" = me, regardless of which mode or which numbered slot
@@ -1978,6 +2024,35 @@ function pickFreeAnimal(){
 
 // ---------- reveal panel: photo + fun fact on click ----------
 const wikiImageCache = new Map(); // name -> url | null (null = looked up, no image found)
+const WIKI_IMAGE_CACHE_KEY = 'beastchain_photo_cache_v1';
+const WIKI_IMAGE_CACHE_MAX = 2000; // eenvoudige bovengrens, ruim genoeg voor alle dieren in het spel
+(function loadPersistedImageCache(){
+  try{
+    const raw = localStorage.getItem(WIKI_IMAGE_CACHE_KEY);
+    if(!raw) return;
+    const obj = JSON.parse(raw);
+    for(const [name, url] of Object.entries(obj)) wikiImageCache.set(name, url);
+  }catch(e){ /* opgeslagen cache negeren als 'm ooit corrupt zou raken */ }
+})();
+let persistImageCacheTimer = null;
+function persistImageCache(){
+  // Licht vertraagd en gebundeld opslaan, zodat dit niet bij elke los
+  // gevonden foto apart naar de lokale opslag hoeft te schrijven.
+  if(persistImageCacheTimer) return;
+  persistImageCacheTimer = setTimeout(() => {
+    persistImageCacheTimer = null;
+    try{
+      const obj = {};
+      let i = 0;
+      // bij een zeldzame, zeer lange sessie de oudste helft laten vallen in
+      // plaats van eindeloos te blijven groeien
+      const entries = [...wikiImageCache.entries()];
+      const trimmed = entries.length > WIKI_IMAGE_CACHE_MAX ? entries.slice(entries.length - WIKI_IMAGE_CACHE_MAX) : entries;
+      for(const [name, url] of trimmed) obj[name] = url;
+      localStorage.setItem(WIKI_IMAGE_CACHE_KEY, JSON.stringify(obj));
+    }catch(e){ /* volle opslag of privé-modus: gewoon negeren, alleen deze sessie blijft dan in het geheugen werken */ }
+  }, 800);
+}
 let revealToken = 0; // guards against a slow fetch overwriting a newer click
 
 async function wikiPageInfo(title, lang){
@@ -2315,6 +2390,15 @@ async function fetchAnimalImage(rawName, gen){
   if(wikiImageCache.has(cacheKey)) return wikiImageCache.get(cacheKey);
   let url = null;
 
+  // De Engelse "laatste redmiddel"-zoekopdracht (stap 5 hieronder) hangt niet
+  // af van iets uit de Nederlandse keten -- die kan dus gewoon alvast op de
+  // achtergrond meelopen terwijl de Nederlandse stappen 1-4 nog bezig zijn,
+  // in plaats van pas te beginnen zodra die allemaal zijn mislukt. Gebruikt
+  // wordt 'm nog steeds alleen als de Nederlandse stappen niets opleveren --
+  // dit verandert dus niets aan welke bron voorrang krijgt, alleen wannéér
+  // het netwerkverzoek ervoor al onderweg is.
+  const enResolvedPromise = resolveAnimalTitle(name, 'en', gen).catch(() => null);
+
   const nlResolved = await resolveAnimalTitle(name, 'nl', gen);
   const nlTitle = nlResolved ? nlResolved.title : name;
   const nlInfo = nlResolved ? nlResolved.info : null;
@@ -2350,7 +2434,7 @@ async function fetchAnimalImage(rawName, gen){
   // 5. Last resort: resolve directly on English Wikipedia, same
   //    category-aware disambiguation and name-verification as we did for Dutch
   if(!url){
-    const enResolved = await resolveAnimalTitle(name, 'en', gen);
+    const enResolved = await enResolvedPromise;
     if(enResolved){
       const enTaxon = enResolved.taxon || await wikidataTaxonInfo(enResolved.title, 'en', name);
       if(enTaxon && enTaxon.nameVerified && enTaxon.isBiological && enTaxon.imgUrl) url = enTaxon.imgUrl;
@@ -2360,6 +2444,7 @@ async function fetchAnimalImage(rawName, gen){
   }
 
   wikiImageCache.set(cacheKey, url);
+  persistImageCache();
   return url;
 }
 
@@ -7946,10 +8031,20 @@ checkForInviteLink();
   let stageWidthPx = 360;
   let rafId = null;
 
+  // Voor stenen komt het botsingsvak overeen met de hele zichtbare breedte
+  // (die zijn redelijk egaal gevuld). Voor bomen is dat niet eerlijk: die
+  // hebben een brede kruin bovenin maar een dunne stam onderin, precies waar
+  // de capibara ook echt tegenaan zou lopen -- dus daar gebruiken we een
+  // smaller, specifiek op de stam gericht botsingsvak in plaats van de volle
+  // breedte van de afbeelding.
   const OBSTACLE_FILES = [
-    { file:'rock_tallA.png', w:30, h:36 }, { file:'rock_tallB.png', w:32, h:34 }, { file:'rock_tallF.png', w:26, h:31 },
-    { file:'tree_detailed.png', w:18, h:33 }, { file:'tree_fat_fall.png', w:22, h:33 },
-    { file:'tree_palmDetailedShort.png', w:30, h:33 }, { file:'tree_plateau_dark.png', w:17, h:31 }
+    { file:'rock_tallA.png', w:30, h:36, hitboxW:30 },
+    { file:'rock_tallB.png', w:32, h:34, hitboxW:32 },
+    { file:'rock_tallF.png', w:26, h:31, hitboxW:26 },
+    { file:'tree_detailed.png', w:18, h:33, hitboxW:5 },
+    { file:'tree_fat_fall.png', w:22, h:33, hitboxW:6 },
+    { file:'tree_palmDetailedShort.png', w:30, h:33, hitboxW:7 },
+    { file:'tree_plateau_dark.png', w:17, h:31, hitboxW:5 }
   ];
 
   try{ best = parseInt(localStorage.getItem(CAPIRUN_BEST_KEY), 10) || 0; }catch(e){ best = 0; }
@@ -8010,7 +8105,8 @@ checkForInviteLink();
     el.style.bottom = GROUND_Y + 'px';
     el.style.left = stageWidthPx + 'px';
     obstaclesEl.appendChild(el);
-    obstacles.push({ el, x: stageWidthPx, width: def.w, height: def.h });
+    const hitboxOffset = (def.w - def.hitboxW) / 2; // het smallere vak in het midden van de afbeelding houden
+    obstacles.push({ el, x: stageWidthPx, width: def.w, height: def.h, hitboxW: def.hitboxW, hitboxOffset });
   }
 
   function loop(now){
@@ -8072,9 +8168,12 @@ checkForInviteLink();
       // Controleer niet alleen de positie NA deze stap, maar of het obstakel
       // tijdens de beweging van deze stap door de capibara heen is geschoven
       // -- zonder dit kan een obstakel bij hoge snelheid soms in één enkele
-      // rekenstap "overgeslagen" worden.
-      const obLeftNow = ob.x, obRightNow = ob.x + ob.width;
-      const obLeftPrev = prevX, obRightPrev = prevX + ob.width;
+      // rekenstap "overgeslagen" worden. Gebruikt hierbij het (mogelijk
+      // smallere) botsingsvak, niet per se de volledige zichtbare breedte.
+      const hbW = ob.hitboxW !== undefined ? ob.hitboxW : ob.width;
+      const hbOffset = ob.hitboxOffset || 0;
+      const obLeftNow = ob.x + hbOffset, obRightNow = obLeftNow + hbW;
+      const obLeftPrev = prevX + hbOffset, obRightPrev = obLeftPrev + hbW;
       const movedThrough = (obRightPrev >= capyLeftPx && obLeftPrev <= capyRightPx) ||
                             (obRightNow  >= capyLeftPx && obLeftNow  <= capyRightPx);
       // Belangrijk: hier moet de sprong-hóógte (y, 0 = op de grond) vergeleken
