@@ -6259,7 +6259,7 @@ hintBtn.addEventListener('click', () => {
   updateActionButtons();
 });
 
-function commitEntry(entry){
+function commitEntry(entry, skipPrefetch){
   used.add(entry.name.toLowerCase());
   chain.push(entry);
   addLog(entry, chain.length-1);
@@ -6268,6 +6268,13 @@ function commitEntry(entry){
   renderAchievementsPanel(); // keep progress fractions live, even between tier-ups
   updateStatus();
   updateScoreRow();
+  // Alvast op de achtergrond de foto ophalen (en in de cache zetten), zodat
+  // die meestal al klaarstaat tegen de tijd dat iemand echt op dit dier
+  // klikt -- in plaats van pas te beginnen zoeken op het moment van klikken.
+  // Bij het in één keer inladen van een lang, al bestaand spel (bijvoorbeeld
+  // net meegedaan aan een kamer) slaan we dit bewust over, zodat dat niet in
+  // één klap tientallen zoekopdrachten tegelijk afvuurt.
+  if(!skipPrefetch) fetchAnimalImage(entry.name, entry.gen).catch(() => {});
   showReveal(chain.length - 1); // always jump to the animal that was just played
   if(mode === 'pvp' && !suppressFx) checkChainLimitEnd();
   if(mode === 'cpu' && !suppressFx) checkChainLimitEnd();
@@ -6874,7 +6881,8 @@ function applyRemoteState(parsed){
   // game currently on screen.
   if(parsed.lang && parsed.lang !== gameLang) applyGameLanguage(parsed.lang);
   if(parsed.cl !== undefined) chainLimit = parsed.cl;
-  for(let i = chain.length; i < parsed.c.length; i++) commitEntry(parsed.c[i]);
+  const isBulkCatchUp = (parsed.c.length - chain.length) > 3;
+  for(let i = chain.length; i < parsed.c.length; i++) commitEntry(parsed.c[i], isBulkCatchUp);
   if(parsed.c.length >= chain.length){ turnNum = parsed.t; skipPending = parsed.sk; }
   if(parsed.n1) player1Name = parsed.n1;
   if(parsed.n2) player2Name = parsed.n2;
@@ -7023,7 +7031,7 @@ function openGame(roomCode){
       if(e.skipBonus) entry.skipBonus = true;
       if(e.jokerUsed) entry.jokerUsed = true;
       if(e.hintCost) entry.hintCost = true;
-      commitEntry(entry);
+      commitEntry(entry, true);
     }
   }
   suppressFx = false;
@@ -7345,7 +7353,7 @@ function resumeCpuGame(saved){
       if(e.skipBonus) entry.skipBonus = true;
       if(e.jokerUsed) entry.jokerUsed = true;
       if(e.hintCost) entry.hintCost = true;
-      commitEntry(entry);
+      commitEntry(entry, true);
     }
   }
   suppressFx = false;
@@ -7921,8 +7929,8 @@ checkForInviteLink();
   const closeBtn = document.getElementById('capiRunCloseBtn');
 
   const GROUND_Y = 34; // px vanaf de onderkant van het speelveld
-  const GRAVITY = 1500; // px/s^2
-  const JUMP_VELOCITY = 385; // px/s, omhoog
+  const GRAVITY = 1250; // px/s^2 -- iets zachter, voor een vergevingsgezinder sprongboog
+  const JUMP_VELOCITY = 420; // px/s, omhoog
   const CAPY_LEFT = 15; // % vanaf links
   const CAPY_WIDTH = 56, CAPY_HEIGHT = 68;
   const CAPY_FRAME_STEP = 56; // 28px bronbeeld x2 (scherpte)
@@ -8074,7 +8082,7 @@ checkForInviteLink();
       // de vaste grondafstand (GROUND_Y). Die eerdere versie zorgde dat lagere
       // obstakels nooit een botsing konden geven, ook niet als je er recht
       // doorheen rende zonder te springen.
-      const overlapY = y < ob.height - 6; // kleine speling voor een natuurlijker gevoel
+      const overlapY = y < ob.height - 10; // wat ruimere speling, voor een vergevingsgezinder gevoel
       if(movedThrough && overlapY){
         endGame();
         return;
