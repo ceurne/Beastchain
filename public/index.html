@@ -178,17 +178,17 @@
   .journey-section.collapsed .journey-body{ display:none; }
 
   .stamp-row{
-    display:flex; align-items:center; gap:10px; padding:9px 12px; margin-bottom:6px;
-    background:var(--card); border:2px solid var(--border); border-radius:8px; cursor:default;
+    display:flex; align-items:center; gap:12px; padding:10px 12px; margin-bottom:8px;
+    border-radius:10px; cursor:default;
   }
   .stamp-row.earned{ cursor:pointer; }
-  .stamp-row.locked{ background:var(--paper); border-style:dashed; opacity:.55; }
-  .stamp-icon{ font-size:19px; flex-shrink:0; }
-  .stamp-row.locked .stamp-icon{ filter:grayscale(1); }
+  .stamp-icon-badge{
+    width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .stamp-icon{ font-size:19px; line-height:1; }
   .stamp-text{ flex:1; min-width:0; }
-  .stamp-name{ font-family:'Fraunces', serif; font-weight:600; font-size:12.5px; color: var(--ink); }
-  .stamp-row.locked .stamp-name{ color: var(--ink-dim); }
-  .stamp-sub{ font-family:'DM Sans', sans-serif; font-size:9px; color: var(--ink-dim); margin-top:1px; }
+  .stamp-name{ font-family:'Fraunces', serif; font-weight:700; font-size:13px; color: var(--ink); }
+  .stamp-sub{ font-family:'DM Sans', sans-serif; font-size:9.5px; color: var(--ink-dim); margin-top:1px; }
   .stamp-tier{ font-size:15px; flex-shrink:0; }
   .stamp-expand{
     margin:-2px 0 8px; padding:9px 12px; background: var(--paper); border-radius:8px;
@@ -1057,12 +1057,12 @@
       <button class="btn-copy btn-share-invite" id="shareInviteBtn" style="width:100%;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="2" y="4.5" width="20" height="15" rx="2"/><path d="m2.5 6 8.6 6.4a2.2 2.2 0 0 0 2.8 0L22.5 6" stroke-width="1.4"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg> Stuur uitnodiging</button>
       <button class="btn-copy" id="copyRoomCodeBtn" style="width:100%;">Kopieer kamercode</button>
       <details class="backup">
-        <summary>Werkt automatisch synchroniseren niet? Back-up via handmatige code</summary>
+        <summary id="backupSummary">Werkt automatisch synchroniseren niet? Back-up via handmatige code</summary>
         <div class="backup-body">
-          <label class="small">Jouw huidige spelstand — stuur als back-up:</label>
+          <label class="small" id="outCodeLabel">Jouw huidige spelstand — stuur als back-up:</label>
           <textarea class="code-box" id="outCode" readonly onclick="this.select()"></textarea>
           <button class="btn-copy" id="copyStateBtn" style="width:100%;margin:6px 0;">Kopieer spelstand</button>
-          <label class="small">Spelstand van tegenstander plakken:</label>
+          <label class="small" id="inCodeLabel">Spelstand van tegenstander plakken:</label>
           <div class="code-row">
             <input type="text" id="inCode" placeholder="Geplakte spelstand...">
             <button class="btn-load" id="loadCodeBtn">Laden</button>
@@ -1104,7 +1104,7 @@
     <div class="turn-banner" id="turnBanner" style="display:none;"></div>
 
     <div class="status-row">
-      <span>Kettinglengte: <b id="chainLen">0</b></span>
+      <span id="chainLenLabel">Kettinglengte:</span> <b id="chainLen">0</b>
     </div>
     <div class="score-row" id="scoreRow" style="display:none;"></div>
 
@@ -1635,6 +1635,12 @@ const UI_STRINGS = {
   startAsP1Btn:    { nl:'Nieuw spel starten (ik ben speler 1)', en:'Start new game (I am player 1)' },
   joinRoomBtn:     { nl:'Deelnemen', en:'Join' },
   copyRoomCodeBtn: { nl:'Kopieer kamercode', en:'Copy room code' },
+  backupSummary: { nl:'Werkt automatisch synchroniseren niet? Back-up via handmatige code', en:"Isn't automatic syncing working? Manual code backup" },
+  outCodeLabel: { nl:'Jouw huidige spelstand — stuur als back-up:', en:'Your current game state — send as a backup:' },
+  inCodeLabel: { nl:'Spelstand van tegenstander plakken:', en:"Paste your opponent's game state:" },
+  copyStateBtn: { nl:'Kopieer spelstand', en:'Copy game state' },
+  loadCodeBtn: { nl:'Laden', en:'Load' },
+  chainLenLabel: { nl:'Kettinglengte:', en:'Chain length:' },
   copyStateBtn:    { nl:'Kopieer spelstand', en:'Copy game state' },
   loadCodeBtn:     { nl:'Laden', en:'Load' },
   refreshGamesBtn: { nl:'↻ Ververs overzicht', en:'↻ Refresh overview' },
@@ -1669,6 +1675,7 @@ function applyUIStrings(){
     : "Choose Dutch or English for the game itself below, independent of this screen's language.";
   translateChainLimitOptions();
   joinCodeInput.placeholder = uiLang==='nl' ? 'bv. 482913' : 'e.g. 482913';
+  inCode.placeholder = uiLang==='nl' ? 'Geplakte spelstand...' : 'Pasted game state...';
   // Deze knop wordt niet via de generieke UI_STRINGS-lus vertaald, omdat zijn
   // inhoud ook een icoontje bevat dat anders overschreven zou worden -- dus
   // hier expliciet alleen het tekstgedeelte bijwerken, zoals bij de andere
@@ -1938,9 +1945,9 @@ function bestGlobalRecord(catId){
 function renderGlobalAchievements(){
   const CAT_ORDER = ['mammal','bird','reptile','fish','insect','amphibian','pet','farm','zoo','sea',
     'desert','australia','savanna','polar','predator','rodent','nocturnal','rainforest','migratory','endangered'];
-  const CAT_ICON = { mammal:'🦁', bird:'🦅', reptile:'🐍', fish:'🐟', insect:'🦋', amphibian:'🐸',
-    pet:'🐕', farm:'🐄', zoo:'🦒', sea:'🌊', desert:'🏜️', australia:'🦘', savanna:'🌾', polar:'🧊',
-    predator:'🐾', rodent:'🐿️', nocturnal:'🌙', rainforest:'🌴', migratory:'🧭', endangered:'🛡️' };
+  const CAT_ICON = { mammal:'🦁', bird:'🦅', reptile:'🦎', fish:'🐟', insect:'🕷️', amphibian:'🐸',
+    pet:'🐕', farm:'🐄', zoo:'🦒', sea:'🐬', desert:'🌵', australia:'🦘', savanna:'🦓', polar:'🐻‍❄️',
+    predator:'🐺', rodent:'🐭', nocturnal:'🦉', rainforest:'🐒', migratory:'🕊️', endangered:'🐼' };
   // "Mijn Reis" is browsed independently of any active game, so it follows
   // uiLang throughout, via the fixed ACHIEVEMENTS_NL/EN sets directly rather
   // than the mutable, game-session-scoped ACHIEVEMENTS pointer.
@@ -1948,16 +1955,16 @@ function renderGlobalAchievements(){
   globalAchvList.innerHTML = CAT_ORDER.map(cat => {
     const def = ACH[cat];
     if(!def) return '';
+    const style = ACHV_CAT_STYLE[cat] || {color:'#9c4a1c', tint:'#f8e9de'};
     const rec = bestGlobalRecord(cat);
     if(!rec){
-      return `<div class="stamp-row locked">
-        <div class="stamp-icon">${CAT_ICON[cat]}</div>
+      return `<div class="stamp-row locked" style="background:${style.tint};">
+        <div class="stamp-icon-badge" style="background:${style.color}22;"><span class="stamp-icon">${CAT_ICON[cat]}</span></div>
         <div class="stamp-text"><div class="stamp-name">${escapeHtml(def.name)}</div><div class="stamp-sub">${uiLang==='nl'?'Nog niet behaald':'Not earned yet'}</div></div>
       </div>`;
     }
-    const tierColor = { bronze:'#b08d45', silver:'#8a8f99', gold:'#c9a227' }[rec.tier];
-    return `<div class="stamp-row earned" style="border-color:${tierColor};" data-cat="${cat}" data-count="${rec.count}" data-tier="${rec.tier}">
-      <div class="stamp-icon">${CAT_ICON[cat]}</div>
+    return `<div class="stamp-row earned" style="background:${style.tint};" data-cat="${cat}" data-count="${rec.count}" data-tier="${rec.tier}">
+      <div class="stamp-icon-badge" style="background:${style.color}22;"><span class="stamp-icon">${CAT_ICON[cat]}</span></div>
       <div class="stamp-text"><div class="stamp-name">${escapeHtml(def.name)}</div><div class="stamp-sub">${escapeHtml(def[rec.tier].label)}</div></div>
       <div class="stamp-tier">${TIER_ICON[rec.tier]}</div>
     </div>`;
