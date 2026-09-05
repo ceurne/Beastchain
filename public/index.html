@@ -415,7 +415,9 @@
     background: transparent; border:1px solid var(--border); color: var(--ink-dim);
   }
   .notify-icon-btn[data-subscribed="1"]{ background: var(--rust); border-color: var(--rust); color:#faf5e6; }
-  .notify-icon-btn[data-blocked="1"]{ opacity:.45; border-style:dashed; }
+  .notify-icon-btn[data-blocked="1"]{ opacity:1; border-color:#b23a3a; color:#b23a3a; background:rgba(178,58,58,.1); }
+  .notify-icon-btn[data-blocked="1"] .bell-normal{ display:none; }
+  .notify-icon-btn[data-blocked="1"] .bell-blocked{ display:block !important; }
   .capirun-btn{
     background: var(--rust); border-radius:999px; padding:6px 12px 6px 8px; display:flex; align-items:center; gap:6px;
     box-shadow:0 2px 6px rgba(0,0,0,.2); border:none; cursor:pointer;
@@ -807,7 +809,8 @@
     <button class="mode-btn" id="nameBtn" style="flex:0 0 auto;">✎ Naam</button>
     <button class="mode-btn" id="favBtn" style="flex:0 0 auto;">🐾 Lievelingsdier</button>
     <button class="notify-icon-btn" id="notifyBtn" data-dynamic-text="1" style="display:none;" title="Meldingen">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg>
+      <svg class="bell-normal" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg>
+      <svg class="bell-blocked" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M8.7 3A6 6 0 0 1 18 8c0 2.9.7 4.7 1.3 5.8"/><path d="M17.7 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6.02 6.02 0 0 1 .59-2.61"/><path d="M10.268 21a2 2 0 0 0 3.464 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
     </button>
     <button class="capirun-btn" id="capiRunOpenBtn" style="margin-left:auto;flex:0 0 auto;">
       <span class="capirun-btn-sprite" id="capiRunBtnSprite"></span>
@@ -7750,11 +7753,12 @@ async function subscribeToPushNotifications(){
       });
     }
     const roomCode = syncTopic.replace(TOPIC_PREFIX, '');
-    const res = await fetch(`https://ntfy.sh/beastchain-push-${roomCode}-${myPlayerNum}`, {
+    const res = await fetch('https://beastchain-notify.cornedewaard.workers.dev/sub-publish', {
       method: 'POST',
-      body: JSON.stringify(sub)
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ roomCode, playerNum: myPlayerNum, subscription: sub })
     });
-    lastPushSubscribeError = res.ok ? '' : ('ntfy publish failed: ' + res.status);
+    lastPushSubscribeError = res.ok ? '' : ('sub-publish failed: ' + res.status);
     return res.ok;
   }catch(e){
     // Push isn't available here (unsupported browser, functions not deployed
@@ -7812,9 +7816,9 @@ async function updateNotifyBtn(){
     notifyBtn.dataset.blocked = '1';
     notifyBtn.title = uiLang==='nl' ? 'Meldingen staan uit in je telefooninstellingen' : 'Notifications are blocked in your phone settings';
     if(hintEl2){
-      hintEl2.textContent = uiLang==='nl'
-        ? 'Geblokkeerd — zet meldingen aan bij je telefooninstellingen voor deze app'
-        : 'Blocked — turn on notifications for this app in your phone settings';
+      hintEl2.innerHTML = uiLang==='nl'
+        ? 'Geblokkeerd. Je krijgt hierdoor ook geen toestemmingsvraag meer te zien — dat doet je telefoon nooit twee keer. Zelf rechtzetten: instellingen-app → scroll naar "BeastChain" → Meldingen → zet aan.'
+        : 'Blocked. That\'s also why you won\'t see the permission popup again — phones never ask twice. To fix it: Settings app → scroll to "BeastChain" → Notifications → turn on.';
       hintEl2.style.display = 'block';
     }
     return;
