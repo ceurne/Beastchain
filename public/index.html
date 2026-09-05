@@ -426,8 +426,8 @@
     color:#faf5e6; display:flex; align-items:center; gap:5px; flex:1; min-width:0; justify-content:center;
   }
   .name-fav-half span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .name-half{ background: var(--rust); }
-  .fav-half{ background: var(--ink); }
+  .name-half{ background: var(--rust); margin-right:-1px; }
+  .fav-half{ background: var(--ink); position:relative; }
   .paw-icon-white{ height:12px; width:auto; flex-shrink:0; }
 
   .notify-icon-btn{
@@ -580,8 +580,20 @@
   }
   .achievements-empty{ font-family:'Lora', serif; font-style:italic; font-size:12px; color: var(--ink-dim); }
   .achievements-list{
-    overflow-y:auto; height: calc(6 * 24px);
+    overflow-y:auto; height: 204px;
   }
+  .achv-card{ border-radius:9px; padding:7px 9px; margin-bottom:6px; display:flex; align-items:center; gap:9px; cursor:pointer; }
+  .achv-badge{ position:relative; width:30px; height:30px; flex-shrink:0; }
+  .achv-badge-cushion{ position:absolute; inset:0; border-radius:50%; }
+  .achv-badge-inner{ position:absolute; top:2px; left:2px; width:26px; height:26px; border-radius:50%; background: var(--card); display:flex; align-items:center; justify-content:center; font-size:13px; }
+  .achv-info{ flex:1; min-width:0; }
+  .achv-info-top{ display:flex; align-items:baseline; gap:6px; }
+  .achv-info-title{ font-family:'Fraunces', serif; font-weight:700; font-size:12px; color: var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .achv-info-who{ font-family:'Special Elite', monospace; font-size:7.5px; color: var(--ink-dim); flex-shrink:0; margin-left:auto; }
+  .achv-info-cat{ font-family:'Special Elite', monospace; font-size:8px; color: var(--ink-dim); margin-bottom:3px; }
+  .achv-bar{ height:4px; background:rgba(255,255,255,.7); border-radius:2px; overflow:hidden; }
+  .achv-bar-fill{ height:100%; }
+  .achv-progress-text{ font-family:'Special Elite', monospace; font-size:7.5px; color: var(--ink-dim); margin-top:2px; }
   .achv-row{
     display:flex; align-items:center; gap:8px; height:22px; cursor:pointer;
     font-family:'Special Elite', monospace; font-size:9.5px; color: var(--rust);
@@ -1537,10 +1549,20 @@ const ACHIEVEMENTS_EN = {
   endangered: {name:'Endangered species',   bronze:{n:6,  label:'Guardian'},              silver:{n:14, label:'Conservationist'},         gold:{n:22, label:'Species Saviour'}}
 };
 let ACHIEVEMENTS = ACHIEVEMENTS_NL;
-function medalSvg(color){
-  return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M7.2 15 2.7 7.1a2 2 0 0 1 .1-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.1a2 2 0 0 1 .1 2.2L16.8 15"/><path d="M11 12 5.1 2.2M13 12l5.9-9.8"/><circle cx="12" cy="17" r="5" fill="${color}" opacity=".18"/><circle cx="12" cy="17" r="5"/><path d="M12 14.3l.8 1.7 1.8.2-1.3 1.3.3 1.8-1.6-.9-1.6.9.3-1.8-1.3-1.3 1.8-.2z" fill="${color}" stroke-width="1"/></svg>`;
+function medalSvg(main, dark){
+  return `<svg width="16" height="16" viewBox="0 0 32 32" style="vertical-align:-4px;">
+    <path d="M11 14 L6 26 L11 24 L14 28 L18 16 Z" fill="${dark}"/>
+    <path d="M21 14 L26 26 L21 24 L18 28 L14 16 Z" fill="${dark}"/>
+    <circle cx="16" cy="14" r="11" fill="${main}"/>
+    <circle cx="16" cy="14" r="11" fill="none" stroke="${dark}" stroke-width="1.5"/>
+    <path d="M16 8l1.8 3.6 4 .58-2.9 2.82.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.82 4-.58z" fill="${dark}"/>
+  </svg>`;
 }
-const TIER_ICON = {bronze: medalSvg('#8b5a2b'), silver: medalSvg('#8a8a8a'), gold: medalSvg('#b8860b')};
+const TIER_ICON = {
+  bronze: medalSvg('#cd7f32', '#a86325'),
+  silver: medalSvg('#b8bfc7', '#8a929c'),
+  gold: medalSvg('#e8c14a', '#b8942e')
+};
 
 // ---------- state ----------
 let mode = 'cpu';
@@ -1824,21 +1846,36 @@ function awardAchievement(playerKey, catId, tier, entryName){
   // heeft behaald, niet bij de tegenstander wanneer diens winst via
   // synchronisatie binnenkomt.
   if(suppressFx || !isLocalPlayer(playerKey)) return;
-  showAchievementRibbon(TIER_ICON[tier], def[tier].label, def.name);
+  showAchievementRibbon(tier, def[tier].label, def.name);
 }
 
-function showAchievementRibbon(tierIconHtml, titleText, subText){
+const MEDAL_TIER_COLORS = {
+  bronze: {main:'#cd7f32', dark:'#a86325'},
+  silver: {main:'#b8bfc7', dark:'#8a929c'},
+  gold: {main:'#e8c14a', dark:'#b8942e'}
+};
+function showAchievementRibbon(tier, titleText, subText){
   const overlay = document.createElement('div');
   overlay.className = 'achievement-ribbon-overlay';
   const ribbon = document.createElement('div');
   ribbon.className = 'achievement-ribbon';
+  const c = MEDAL_TIER_COLORS[tier] || MEDAL_TIER_COLORS.bronze;
+  const medalNative = `
+    <g transform="translate(168,50) scale(0.85)">
+      <path d="M-5 -2 L-10 10 L-5 8 L-2 12 L2 0 Z" fill="${c.dark}"/>
+      <path d="M5 -2 L10 10 L5 8 L2 12 L-2 0 Z" fill="${c.dark}"/>
+      <circle cx="0" cy="-2" r="11" fill="${c.main}"/>
+      <circle cx="0" cy="-2" r="11" fill="none" stroke="${c.dark}" stroke-width="1.5"/>
+      <path d="M0 -8l1.8 3.6 4 .58-2.9 2.82.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.82 4-.58z" fill="${c.dark}"/>
+    </g>`;
   ribbon.innerHTML = `<svg viewBox="0 0 640 110" xmlns="http://www.w3.org/2000/svg">
     <polygon points="0,30 130,30 130,80 0,80 25,55" fill="#9c4a1c"/>
     <polygon points="45,30 130,30 130,80 45,80 70,55" fill="#6b3010"/>
     <polygon points="640,30 510,30 510,80 640,80 615,55" fill="#9c4a1c"/>
     <polygon points="595,30 510,30 510,80 595,80 570,55" fill="#6b3010"/>
     <rect x="100" y="20" width="440" height="70" rx="6" fill="#9c4a1c"/>
-    <text x="320" y="50" text-anchor="middle" class="rib-title" font-size="26" fill="#faf5e6">${escapeHtml(tierIconHtml)} ${escapeHtml(titleText)}</text>
+    ${medalNative}
+    <text x="340" y="50" text-anchor="middle" class="rib-title" font-size="26" fill="#faf5e6">${escapeHtml(titleText)}</text>
     <text x="320" y="72" text-anchor="middle" class="rib-sub" font-size="12" fill="#f4ecd8" opacity="0.9">${escapeHtml(subText.toUpperCase())}</text>
   </svg>`;
   overlay.appendChild(ribbon);
@@ -1963,6 +2000,18 @@ function normalizePlayerKey(playerKey){
   return isNaN(playerKey) ? playerKey : parseInt(playerKey, 10);
 }
 
+const ACHV_CAT_STYLE = {
+  mammal:{color:'#9c4a1c', tint:'#f8e9de'}, bird:{color:'#2f6690', tint:'#e3edf3'},
+  reptile:{color:'#3f7d4a', tint:'#e6f0e7'}, fish:{color:'#1f6f78', tint:'#e1eeef'},
+  insect:{color:'#5a8f3c', tint:'#eaf2e2'}, amphibian:{color:'#2f8f6f', tint:'#e2f2ec'},
+  pet:{color:'#a05a2c', tint:'#f5e8de'}, farm:{color:'#8a6d1f', tint:'#f3edd8'},
+  zoo:{color:'#6b4a9c', tint:'#ece5f5'}, sea:{color:'#1f5f8f', tint:'#dfeaf3'},
+  desert:{color:'#b8862f', tint:'#f7edd9'}, australia:{color:'#c2622c', tint:'#f8e6d8'},
+  savanna:{color:'#a67c2e', tint:'#f5ecd8'}, polar:{color:'#2f7a9c', tint:'#e1eef3'},
+  predator:{color:'#7a2f2f', tint:'#f0dfdf'}, rodent:{color:'#6b5a2f', tint:'#eee8d8'},
+  nocturnal:{color:'#3f3f6b', tint:'#e3e3ef'}, rainforest:{color:'#2f7a4a', tint:'#dff0e5'},
+  migratory:{color:'#4a6b9c', tint:'#e5ecf5'}, endangered:{color:'#8f2f4a', tint:'#f2dfe6'}
+};
 function renderAchievementsPanel(){
   const pairs = new Set();
   for(const key of awardedAchievements){
@@ -2003,17 +2052,27 @@ function renderAchievementsPanel(){
     const progressText = r.nextTier
       ? `${r.count}/${r.nextThreshold} ${gameLang==='nl'?'tot':'to'} ${TIER_ICON[r.nextTier]}`
       : (gameLang==='nl' ? 'Hoogste graad behaald' : 'Top tier reached');
-    return `<div class="achv-row" data-idx="${idx}">
-        <span class="tier-icon">${TIER_ICON[r.tier]}</span>
-        <span class="achv-label">${escapeHtml(r.def[r.tier].label)}</span>
-        <span class="achv-cat">${escapeHtml(r.def.name)}</span>
-        <span class="who">${escapeHtml(r.who)}</span>
+    const style = ACHV_CAT_STYLE[r.cat] || {color:'#9c4a1c', tint:'#f8e9de'};
+    const pct = Math.min(100, Math.round(r.progressRatio*100));
+    return `<div class="achv-card" data-idx="${idx}" style="background:${style.tint};">
+        <div class="achv-badge">
+          <div class="achv-badge-cushion" style="background:${style.color};"></div>
+          <div class="achv-badge-inner">${TIER_ICON[r.tier]}</div>
+        </div>
+        <div class="achv-info">
+          <div class="achv-info-top">
+            <span class="achv-info-title">${escapeHtml(r.def[r.tier].label)}</span>
+            <span class="achv-info-who">${escapeHtml(r.who)}</span>
+          </div>
+          <div class="achv-info-cat">${escapeHtml(r.def.name)}</div>
+          <div class="achv-bar"><div class="achv-bar-fill" style="width:${pct}%;background:${style.color};"></div></div>
+          <div class="achv-progress-text">${escapeHtml(progressText)}</div>
+        </div>
       </div>
-      <div class="achv-progress-line" data-idx="${idx}">${escapeHtml(progressText)}</div>
       <div class="achv-expand" id="achv-expand-${idx}" style="display:none;"></div>`;
   }).join('');
 
-  achievementsGridEl.querySelectorAll('.achv-row, .achv-progress-line').forEach(rowEl => {
+  achievementsGridEl.querySelectorAll('.achv-card').forEach(rowEl => {
     rowEl.addEventListener('click', () => {
       const idx = parseInt(rowEl.dataset.idx, 10);
       const r = rows[idx];
@@ -2049,7 +2108,7 @@ function updateStatus(){
   updateActionButtons();
   if(chain.length === 0){
     freeMoveArmed = false;
-    letterStatusEl.innerHTML = uiLang==='nl' ? 'Kies een willekeurig startdier.' : 'Pick any animal to start.';
+    letterStatusEl.innerHTML = gameLang==='nl' ? 'Kies een willekeurig startdier.' : 'Pick any animal to start.';
     return;
   }
   const need = lastLetter(chain[chain.length-1].name);
@@ -2057,17 +2116,17 @@ function updateStatus(){
   const remaining = pool.filter(n => !used.has(n.toLowerCase()));
   if(remaining.length === 0 && chainLimit){
     freeMoveArmed = true;
-    letterStatusEl.innerHTML = uiLang==='nl'
+    letterStatusEl.innerHTML = gameLang==='nl'
       ? `Letter <b>${need}</b>: geen dieren meer over — kies gewoon een willekeurig ander dier!`
       : `Letter <b>${need}</b>: no animals left — just pick any other animal!`;
     return;
   }
   freeMoveArmed = false;
   if(remaining.length === 0){
-    letterStatusEl.innerHTML = uiLang==='nl' ? `Letter <b>${need}</b>: geen dieren meer over!` : `Letter <b>${need}</b>: no animals left!`;
+    letterStatusEl.innerHTML = gameLang==='nl' ? `Letter <b>${need}</b>: geen dieren meer over!` : `Letter <b>${need}</b>: no animals left!`;
     return;
   }
-  letterStatusEl.innerHTML = uiLang==='nl'
+  letterStatusEl.innerHTML = gameLang==='nl'
     ? `Volgende letter: <b>${need}</b> — nog <b>${remaining.length}</b> dieren mogelijk`
     : `Next letter: <b>${need}</b> — <b>${remaining.length}</b> animals still possible`;
 }
@@ -6373,12 +6432,12 @@ function updateActionButtons(){
   // affordability: what's left AFTER any already-committed-to-this-turn spend, plus this action's own cost
   jokerBtn.disabled = !canAct || jokerUsedThisTurn || chain.length === 0 || (available + (jokerArmed?10:0)) < 10;
   hintBtn.disabled = !canAct || hintUsedThisTurn || (available + (hintPendingCost?3:0)) < 3;
-  jokerBtn.textContent = jokerArmed ? (uiLang==='nl'?'🃏 Joker actief…':'🃏 Joker active…') : (uiLang==='nl'?'🃏 Joker (−10 pt)':'🃏 Joker (−10 pt)');
+  jokerBtn.textContent = jokerArmed ? (gameLang==='nl'?'🃏 Joker actief…':'🃏 Joker active…') : (gameLang==='nl'?'🃏 Joker (−10 pt)':'🃏 Joker (−10 pt)');
 
   if(jokerArmed){
     hintBoxEl.style.display = 'flex';
     hintBoxEl.classList.add('joker-active');
-    hintBoxEl.innerHTML = uiLang==='nl'
+    hintBoxEl.innerHTML = gameLang==='nl'
       ? `<span class="icon">🃏</span><span>Joker actief — kies nu een willekeurig, nog niet gebruikt dier (geen lettereis).</span>`
       : `<span class="icon">🃏</span><span>Joker active — now pick any unused animal (no letter requirement).</span>`;
   } else if(hintUsedThisTurn && hintBoxEl.dataset.hintShown){
@@ -6835,7 +6894,7 @@ function handleSubmit(){
       endGameUI(gameLang==='nl' ? ('★ Geen dieren meer met "' + required + '"! Gefeliciteerd. ★') : ('★ No animals left starting with "' + required + '"! Congratulations. ★'));
       recordGameEnd(true, computeScoreFor('me'));
     } else {
-      letterStatusEl.innerHTML = `<span class="thinking-logo-wrap"><svg class="thinking-logo" width="16" height="16" viewBox="-90 -90 180 180"><g class="spin-group"><use href="#lg-paw" fill="#9c4a1c" transform="rotate(0) translate(0,-60) rotate(90)"/><use href="#lg-bird" stroke="#9c4a1c" transform="rotate(45) translate(0,-60) rotate(90)"/><use href="#lg-hoof" fill="#9c4a1c" transform="rotate(90) translate(0,-60) rotate(90)"/><use href="#lg-bear" fill="#9c4a1c" transform="rotate(135) translate(0,-60) rotate(90)"/><use href="#lg-webbed" fill="#9c4a1c" transform="rotate(180) translate(0,-60) rotate(90)"/><use href="#lg-hare" fill="#9c4a1c" opacity=".8" transform="rotate(225) translate(0,-60) rotate(90)"/><use href="#lg-elephant" fill="#9c4a1c" transform="rotate(270) translate(0,-60) rotate(90)"/><use href="#lg-raccoon" fill="#9c4a1c" transform="rotate(315) translate(0,-60) rotate(90)"/></g></svg></span> ${uiLang==='nl'?'Computer denkt na':'Computer is thinking'}<span class="thinking-dots"></span>`;
+      letterStatusEl.innerHTML = `<span class="thinking-logo-wrap"><svg class="thinking-logo" width="16" height="16" viewBox="-90 -90 180 180"><g class="spin-group"><use href="#lg-paw" fill="#9c4a1c" transform="rotate(0) translate(0,-60) rotate(90)"/><use href="#lg-bird" stroke="#9c4a1c" transform="rotate(45) translate(0,-60) rotate(90)"/><use href="#lg-hoof" fill="#9c4a1c" transform="rotate(90) translate(0,-60) rotate(90)"/><use href="#lg-bear" fill="#9c4a1c" transform="rotate(135) translate(0,-60) rotate(90)"/><use href="#lg-webbed" fill="#9c4a1c" transform="rotate(180) translate(0,-60) rotate(90)"/><use href="#lg-hare" fill="#9c4a1c" opacity=".8" transform="rotate(225) translate(0,-60) rotate(90)"/><use href="#lg-elephant" fill="#9c4a1c" transform="rotate(270) translate(0,-60) rotate(90)"/><use href="#lg-raccoon" fill="#9c4a1c" transform="rotate(315) translate(0,-60) rotate(90)"/></g></svg></span> ${gameLang==='nl'?'Computer denkt na':'Computer is thinking'}<span class="thinking-dots"></span>`;
       setTimeout(() => cpuMove(required), 4000); // give the player time to read their own animal's fact first
     }
     saveCpuGame();
