@@ -109,7 +109,17 @@ self.addEventListener('push', (event) => {
     tag: 'beastchain-turn',
     renotify: true
   };
-  event.waitUntil(self.registration.showNotification(payload.title || 'BeastChain', options));
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Als de app al open EN actief in beeld staat, hoeft de systeemmelding
+      // er niet ook nog eens overheen -- de speler ziet de nieuwe zet dan
+      // toch al via de gewone, live synchronisatie in de app zelf.
+      const appAlreadyOpenAndFocused = clientList.some((client) => client.focused);
+      if (appAlreadyOpenAndFocused) return;
+      return self.registration.showNotification(payload.title || 'BeastChain', options);
+    })
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {
