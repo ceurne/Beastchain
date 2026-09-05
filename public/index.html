@@ -417,6 +417,19 @@
   .handoff-turn-name{ font-family:'Fraunces', serif; font-weight:700; font-size:25px; color: var(--rust); margin-bottom:20px; }
 
   /* ---------- CapiRun mini-game ---------- */
+  .name-fav-pill{
+    display:flex; border-radius:999px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,.2);
+    flex:1 1 auto; min-width:0;
+  }
+  .name-fav-half{
+    border:none; cursor:pointer; padding:9px 10px; font-family:'DM Sans', sans-serif; font-weight:700; font-size:11px;
+    color:#faf5e6; display:flex; align-items:center; gap:5px; flex:1; min-width:0; justify-content:center;
+  }
+  .name-fav-half span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .name-half{ background: var(--rust); }
+  .fav-half{ background: var(--ink); }
+  .paw-icon-white{ height:12px; width:auto; flex-shrink:0; }
+
   .notify-icon-btn{
     flex:0 0 auto; width:30px; height:30px; padding:0; border-radius:999px; cursor:pointer;
     display:flex; align-items:center; justify-content:center;
@@ -428,7 +441,7 @@
   .notify-icon-btn[data-blocked="1"] .bell-blocked{ display:block !important; }
   .capirun-btn{
     background: var(--rust); border-radius:999px; padding:6px 12px 6px 8px; display:flex; align-items:center; gap:6px;
-    box-shadow:0 2px 6px rgba(0,0,0,.2); border:none; cursor:pointer;
+    box-shadow:0 2px 6px rgba(0,0,0,.2); border:none; cursor:pointer; flex-shrink:0;
   }
   .capirun-btn.capirun-suggest{
     animation: capirunPulse 1.6s ease-in-out infinite;
@@ -812,10 +825,12 @@
     <button class="mode-btn" id="modePvpBtn">2 spelers</button>
     <button class="mode-btn" id="modeAchBtn" data-dynamic-text="1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="7.3" stroke-width=".8" opacity=".5"/><path d="M14.8 9.2 13 13l-3.8 1.8L11 11z" fill="currentColor" stroke-width="1"/></svg> <span id="modeAchBtnLabel">Mijn Reis</span></button>
   </div>
-  <div class="mode-row" style="margin-top:-6px;">
+  <div class="mode-row" style="margin-top:-6px;flex-wrap:nowrap;">
     <button class="mode-btn install-btn" id="installBtn" style="display:none;flex:0 0 auto;">⬇ Installeer</button>
-    <button class="mode-btn" id="nameBtn" style="flex:0 0 auto;">✎ Naam</button>
-    <button class="mode-btn" id="favBtn" style="flex:0 0 auto;">🐾 Lievelingsdier</button>
+    <div class="name-fav-pill">
+      <button class="name-fav-half name-half" id="nameBtn" data-dynamic-text="1">✎ <span id="nameBtnLabel">Naam</span></button>
+      <button class="name-fav-half fav-half" id="favBtn" data-dynamic-text="1"><img src="data:image/png;base64,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" class="paw-icon-white"> <span id="favBtnLabel">Lievelingsdier</span></button>
+    </div>
     <button class="notify-icon-btn" id="notifyBtn" data-dynamic-text="1" style="display:none;" title="Meldingen">
       <svg class="bell-normal" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M22 8c0-2.3-.8-4.3-2-6"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/><path d="M4 2C2.8 3.7 2 5.7 2 8"/></svg>
       <svg class="bell-blocked" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M8.7 3A6 6 0 0 1 18 8c0 2.9.7 4.7 1.3 5.8"/><path d="M17.7 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6.02 6.02 0 0 1 .59-2.61"/><path d="M10.268 21a2 2 0 0 0 3.464 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -6775,7 +6790,7 @@ function handleSubmit(){
   if(over) return;
   if(mode === 'pvp'){
     if(myPlayerNum === null) return;
-    if(turnNum !== myPlayerNum){ addError(uiLang==='nl' ? 'Wacht tot je tegenstander een naam heeft ingevuld.' : "Wait for your opponent to enter a name."); inputEl.value=''; return; }
+    if(turnNum !== myPlayerNum){ addError(gameLang==='nl' ? 'Wacht tot je tegenstander een naam heeft ingevuld.' : "Wait for your opponent to enter a name."); inputEl.value=''; return; }
   }
   const raw = inputEl.value.trim();
   if(!raw) return;
@@ -6786,13 +6801,13 @@ function handleSubmit(){
     const fuzzy = findFuzzyMatch(raw);
     if(fuzzy){ official = animalByLower.get(fuzzy.toLowerCase()); autoCorrected = true; }
   }
-  if(!official){ addError(uiLang==='nl' ? ('"' + raw + '" ken ik niet als dier in dit spel.') : ('"' + raw + '" isn\'t a recognised animal in this game.')); inputEl.value=''; return; }
-  if(used.has(official.name.toLowerCase())){ addError(uiLang==='nl' ? ('"' + official.name + '" is al gebruikt.') : ('"' + official.name + '" has already been used.')); inputEl.value=''; return; }
+  if(!official){ addError(gameLang==='nl' ? ('"' + raw + '" ken ik niet als dier in dit spel.') : ('"' + raw + '" isn\'t a recognised animal in this game.')); inputEl.value=''; return; }
+  if(used.has(official.name.toLowerCase())){ addError(gameLang==='nl' ? ('"' + official.name + '" is al gebruikt.') : ('"' + official.name + '" has already been used.')); inputEl.value=''; return; }
   if(chain.length > 0 && !jokerArmed && !freeMoveArmed){
     const need = lastLetter(chain[chain.length-1].name);
-    if(firstLetter(official.name) !== need){ addError(uiLang==='nl' ? ('"' + official.name + '" begint niet met "' + need + '".') : ('"' + official.name + '" doesn\'t start with "' + need + '".')); inputEl.value=''; return; }
+    if(firstLetter(official.name) !== need){ addError(gameLang==='nl' ? ('"' + official.name + '" begint niet met "' + need + '".') : ('"' + official.name + '" doesn\'t start with "' + need + '".')); inputEl.value=''; return; }
     if(selfLoopRestricted(official.name, need)){
-      addError(uiLang==='nl'
+      addError(gameLang==='nl'
         ? ('"' + official.name + '" begint en eindigt met dezelfde letter — dat mag niet direct na een vorig zelfde-letter-dier, tenzij het de laatste optie is.')
         : ('"' + official.name + '" starts and ends with the same letter — not allowed right after another same-letter animal, unless it\'s the only option left.'));
       inputEl.value=''; return;
@@ -6804,7 +6819,7 @@ function handleSubmit(){
   if((mode === 'pvp' || mode === 'local') && skipPending){ entry.skipBonus = true; skipPending = false; }
   if(jokerArmed){ entry.jokerUsed = true; jokerArmed = false; jokerUsedThisTurn = true; }
   if(hintPendingCost){ entry.hintCost = true; hintPendingCost = false; }
-  if(autoCorrected) addSkipLog((uiLang==='nl' ? 'Typefoutje verbeterd: "' : 'Typo corrected: "') + raw + '" → "' + official.name + '"');
+  if(autoCorrected) addSkipLog((gameLang==='nl' ? 'Typefoutje verbeterd: "' : 'Typo corrected: "') + raw + '" → "' + official.name + '"');
   commitEntry(entry);
   inputEl.value = '';
   hintBoxEl.style.display = 'none';
@@ -7718,7 +7733,7 @@ nameBtn.addEventListener('click', async () => {
     : 'Your name (shown to your opponent instead of "Player 1/2"):', current || '');
   if(next === null) return;
   setPlayerName(next.trim().slice(0, 20));
-  nameBtn.textContent = getPlayerName() ? '✎ ' + getPlayerName() : UI_STRINGS.nameBtn[uiLang];
+  document.getElementById('nameBtnLabel').textContent = getPlayerName() || UI_STRINGS.nameBtn[uiLang].replace('✎ ', '');
   if(mode === 'pvp' && syncTopic) publishState();
 });
 
@@ -7735,11 +7750,11 @@ async function refreshFavoriteLogo(){
     favPlaceholderEl.style.display = 'block';
     favPlaceholderEl.textContent = '🐾';
     favCircleEl.style.display = 'none';
-    favBtn.textContent = UI_STRINGS.favBtn[uiLang];
+    document.getElementById('favBtnLabel').textContent = UI_STRINGS.favBtn[uiLang].replace('🐾 ', '');
     favImageEl.dataset.photoUrl = '';
     return;
   }
-  favBtn.textContent = '🐾 ' + rec.name;
+  document.getElementById('favBtnLabel').textContent = rec.name;
   const url = await fetchAnimalImage(rec.name, rec.gen);
   if(getFavoriteAnimal().toLowerCase() !== rec.name.toLowerCase()) return; // changed again while we were fetching
   if(url){
@@ -8059,7 +8074,7 @@ applyGameLanguage(gameLang);
 applyUIStrings();
 updateStatus();
 renderAchievementsPanel();
-nameBtn.textContent = getPlayerName() ? '✎ ' + getPlayerName() : UI_STRINGS.nameBtn[uiLang];
+document.getElementById('nameBtnLabel').textContent = getPlayerName() || UI_STRINGS.nameBtn[uiLang].replace('✎ ', '');
 refreshFavoriteLogo();
 updateNotifyBtn();
 const activeGameCode = getActiveGame();
