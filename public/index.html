@@ -422,9 +422,11 @@
     flex:1 1 auto; min-width:0;
     background: linear-gradient(90deg, var(--rust) 0%, var(--rust) 38%, var(--ink) 62%, var(--ink) 100%);
   }
+  .name-half{ flex: 0.85; }
+  .fav-half{ flex: 1.3; }
   .name-fav-half{
-    border:none; cursor:pointer; padding:9px 10px; font-family:'DM Sans', sans-serif; font-weight:700; font-size:11px;
-    color:#faf5e6; display:flex; align-items:center; gap:5px; flex:1; min-width:0; justify-content:center;
+    border:none; cursor:pointer; padding:9px 8px; font-family:'DM Sans', sans-serif; font-weight:700; font-size:11px;
+    color:#faf5e6; display:flex; align-items:center; gap:4px; min-width:0; justify-content:center;
     background: transparent;
   }
   .name-fav-half span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2045,7 +2047,9 @@ function renderAchievementsPanel(){
     const nextTier = tier === 'gold' ? null : (tier === 'silver' ? 'gold' : 'silver');
     const nextThreshold = nextTier ? def[nextTier].n : null;
     const progressRatio = nextThreshold ? count / nextThreshold : 1;
-    const who = mode === 'pvp' ? (playerKey === myPlayerNum ? (uiLang==='nl'?'JIJ':'YOU') : nameForPlayer(playerKey)) : (playerKey === 'cpu' ? 'CPU' : (uiLang==='nl'?'JIJ':'YOU'));
+    // Toon de eigen naam als die is ingesteld, anders de standaard "JIJ"/"YOU".
+    const myLabel = getPlayerName() || (uiLang==='nl'?'JIJ':'YOU');
+    const who = mode === 'pvp' ? (playerKey === myPlayerNum ? myLabel : nameForPlayer(playerKey)) : (playerKey === 'cpu' ? 'CPU' : myLabel);
     return { playerKey, cat, def, tier, count, nextTier, nextThreshold, progressRatio, who };
   }).filter(Boolean);
 
@@ -7874,7 +7878,7 @@ nameBtn.addEventListener('click', async () => {
     : 'Your name (shown to your opponent instead of "Player 1/2"):', current || '');
   if(next === null) return;
   setPlayerName(next.trim().slice(0, 20));
-  document.getElementById('nameBtnLabel').textContent = getPlayerName() || UI_STRINGS.nameBtn[uiLang].replace('✎ ', '');
+  document.getElementById('nameBtnLabel').textContent = getPlayerName() || UI_STRINGS.nameBtn[uiLang].replace('✎ ', ''); fitLabelText(document.getElementById('nameBtnLabel'));
   if(mode === 'pvp' && syncTopic) publishState();
 });
 
@@ -7882,6 +7886,22 @@ nameBtn.addEventListener('click', async () => {
 const FAVORITE_KEY = 'beastchain_favorite_animal';
 function getFavoriteAnimal(){ try{ return localStorage.getItem(FAVORITE_KEY) || ''; }catch(e){ return ''; } }
 function setFavoriteAnimal(name){ try{ localStorage.setItem(FAVORITE_KEY, name); }catch(e){} }
+
+// Verkleint de tekst in een knop-halve stap voor stap totdat 'm volledig
+// past, in plaats van af te kappen met "...". Reset eerst naar de volle
+// grootte, meet dan of de tekst breder is dan de beschikbare ruimte.
+function fitLabelText(labelEl){
+  if(!labelEl) return;
+  const fullSizePx = 11; // moet gelijk blijven aan de .name-fav-half font-size in de CSS
+  labelEl.style.fontSize = fullSizePx + 'px';
+  let size = fullSizePx;
+  let guard = 0;
+  while(labelEl.scrollWidth > labelEl.clientWidth && size > 6 && guard < 12){
+    size -= 0.5;
+    labelEl.style.fontSize = size + 'px';
+    guard++;
+  }
+}
 
 async function refreshFavoriteLogo(){
   const fav = getFavoriteAnimal();
@@ -7901,10 +7921,12 @@ async function refreshFavoriteLogo(){
     favPlaceholderEl.textContent = '🐾';
     favCircleEl.style.display = 'none';
     document.getElementById('favBtnLabel').textContent = UI_STRINGS.favBtn[uiLang].replace('🐾 ', '');
+    fitLabelText(document.getElementById('favBtnLabel'));
     favImageEl.dataset.photoUrl = '';
     return;
   }
   document.getElementById('favBtnLabel').textContent = rec.name;
+  fitLabelText(document.getElementById('favBtnLabel'));
   const url = await fetchAnimalImage(rec.name, rec.gen);
   if(getFavoriteAnimal().toLowerCase() !== rec.name.toLowerCase()) return; // changed again while we were fetching
   if(url){
@@ -8232,7 +8254,7 @@ applyGameLanguage(gameLang);
 applyUIStrings();
 updateStatus();
 renderAchievementsPanel();
-document.getElementById('nameBtnLabel').textContent = getPlayerName() || UI_STRINGS.nameBtn[uiLang].replace('✎ ', '');
+document.getElementById('nameBtnLabel').textContent = getPlayerName() || UI_STRINGS.nameBtn[uiLang].replace('✎ ', ''); fitLabelText(document.getElementById('nameBtnLabel'));
 refreshFavoriteLogo();
 updateNotifyBtn();
 const activeGameCode = getActiveGame();
