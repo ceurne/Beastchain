@@ -264,8 +264,9 @@
     margin-bottom:10px; font-size:12px; padding:7px 12px; border-radius:3px;
     background: var(--card); border:1px solid var(--border); font-family:'Lora', serif;
   }
+  .score-row.local-multi{ justify-content:flex-start; flex-wrap:wrap; gap:6px 14px; }
   .score-row b{ font-size:15px; font-family:'Fraunces', serif; }
-  .score-row .me{ color: var(--ink); }
+  .score-row .me{ color: var(--ink); font-weight:700; }
   .score-row .opp{ color: var(--opp); }
 
   .main-columns{ display:flex; gap:10px; align-items:stretch; margin-left:14px; margin-bottom:10px; }
@@ -556,7 +557,7 @@
   input[type=text]:focus{ border-color: var(--rust); box-shadow: 0 0 0 3px rgba(156,74,28,.12); }
   input[type=text]:disabled{ opacity:.5; }
   #textInputField{ width:100% !important; }
-  #localP1NameInput, #localP2NameInput{ width:100% !important; margin-bottom:4px; }
+  .local-name-input{ width:100% !important; margin-bottom:4px; }
 
   button{
     font-family:'DM Sans', sans-serif; font-weight:700; font-size:11.5px; letter-spacing:.2px;
@@ -638,7 +639,7 @@
 <body>
 
 <div id="coverPerspective" style="position:fixed;inset:0;z-index:10000;perspective:1400px;">
-  <div id="bookCover" style="position:absolute;inset:0;background:#e8dcc0;transform-style:preserve-3d;transform-origin:left center;transition:transform 2.4s cubic-bezier(.6,0,.3,1);box-shadow:0 0 40px rgba(0,0,0,.4) inset;overflow:hidden;">
+  <div id="bookCover" style="position:absolute;inset:0;background:#e8dcc0;transform-style:preserve-3d;transform-origin:left center;transition:transform 2.4s cubic-bezier(.6,0,.3,1);box-shadow:0 0 40px rgba(0,0,0,.4) inset;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden;">
     <img src="game-assets/cover-millot.jpg" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;height:100%;object-fit:cover;">
   </div>
 </div>
@@ -913,10 +914,15 @@
   <div class="lobby" id="localSetupLobby" style="display:none;">
     <div class="lobby-panel">
       <p id="localIntroP">Om de beurt zetten typen op hetzelfde toestel — geef 'm na elke beurt gewoon door.</p>
-      <label class="small" id="localP1Label">Naam speler 1</label>
-      <input type="text" id="localP1NameInput" placeholder="bijv. Corné" maxlength="20">
-      <label class="small" id="localP2Label" style="margin-top:10px;display:block;">Naam speler 2</label>
-      <input type="text" id="localP2NameInput" placeholder="bijv. Robin" maxlength="20">
+      <label class="small" id="localPlayerCountLabel" style="display:block;">Aantal spelers</label>
+      <select id="localPlayerCountSelect">
+        <option value="2" selected>2 spelers</option>
+        <option value="3">3 spelers</option>
+        <option value="4">4 spelers</option>
+        <option value="5">5 spelers</option>
+        <option value="6">6 spelers</option>
+      </select>
+      <div id="localNameInputsWrap" style="margin-top:10px;"></div>
       <label class="small" id="localGameLangLabel" style="margin-top:10px;display:block;">Speeltaal</label>
       <select id="localGameLangSelect">
         <option value="nl" selected>🇳🇱 Nederlands</option>
@@ -1600,12 +1606,21 @@ let player1Name = '';
 let player2Name = '';
 let player1Fav = '';
 let player2Fav = '';
+// Lokale modus (om de beurt op één toestel) ondersteunt nu een wisselend
+// aantal spelers (2 t/m 6), losstaand van de altijd-precies-2-spelers-opzet
+// die pvp/computer-modus gebruiken -- vandaar een aparte naamlijst hiervoor.
+let localPlayerNames = [];
+let localPlayerCount = 2;
 let chainLimit = 0; // 0 = infinite
 
 const PLAYER_NAME_KEY = 'beastchain_player_name';
 function getPlayerName(){ try{ return localStorage.getItem(PLAYER_NAME_KEY) || ''; }catch(e){ return ''; } }
 function setPlayerName(name){ try{ localStorage.setItem(PLAYER_NAME_KEY, name); }catch(e){} }
 function nameForPlayer(num){
+  if(mode === 'local'){
+    const n = localPlayerNames[num-1];
+    return n || ((uiLang==='nl' ? 'Speler ' : 'Player ') + num);
+  }
   const n = num === 1 ? player1Name : player2Name;
   return n || ((uiLang==='nl' ? 'Speler ' : 'Player ') + num);
 }
@@ -1741,8 +1756,8 @@ const gameoverRestartBtn = document.getElementById('gameoverRestartBtn');
 const localSetupLobbyEl = document.getElementById('localSetupLobby');
 const showLocalSetupBtn = document.getElementById('showLocalSetupBtn');
 const backFromLocalSetupBtn = document.getElementById('backFromLocalSetupBtn');
-const localP1NameInput = document.getElementById('localP1NameInput');
-const localP2NameInput = document.getElementById('localP2NameInput');
+const localPlayerCountSelect = document.getElementById('localPlayerCountSelect');
+const localNameInputsWrap = document.getElementById('localNameInputsWrap');
 const localGameLangSelect = document.getElementById('localGameLangSelect');
 const localChainLimitSelect = document.getElementById('localChainLimitSelect');
 const startLocalGameBtn = document.getElementById('startLocalGameBtn');
@@ -2879,6 +2894,11 @@ function computeScoreFor(playerKey){
   return score;
 }
 function computeScores(){
+  if(mode === 'local'){
+    const out = {};
+    for(let i=1; i<=localPlayerCount; i++) out[i] = computeScoreFor(i);
+    return out;
+  }
   return { 1: computeScoreFor(1), 2: computeScoreFor(2) };
 }
 function myKey(){ return mode === 'pvp' ? myPlayerNum : 'me'; }
@@ -2887,12 +2907,22 @@ function updateScoreRow(){
     const scores = computeScores();
     const other = myPlayerNum === 1 ? 2 : 1;
     scoreRowEl.style.display = 'flex';
+    scoreRowEl.classList.remove('local-multi');
     scoreRowEl.innerHTML = `<span class="me">${uiLang==='nl'?'Jij':'You'}: <b>${scores[myPlayerNum]}</b> pt</span><span class="opp">${escapeHtml(nameForPlayer(other))}: <b>${scores[other]}</b> pt</span>`;
   } else if(mode === 'cpu'){
     const myScore = computeScoreFor('me'), cpuScore = computeScoreFor('cpu');
     scoreRowEl.style.display = 'flex';
+    scoreRowEl.classList.remove('local-multi');
     scoreRowEl.innerHTML = `<span class="me">${uiLang==='nl'?'Jij':'You'}: <b>${myScore}</b> pt</span><span class="opp">${uiLang==='nl'?'Computer':'Computer'}: <b>${cpuScore}</b> pt</span>`;
+  } else if(mode === 'local'){
+    const scores = computeScores();
+    scoreRowEl.style.display = 'flex';
+    scoreRowEl.classList.add('local-multi');
+    scoreRowEl.innerHTML = Array.from({length: localPlayerCount}, (_, i) => i+1)
+      .map(num => `<span class="${num===turnNum ? 'me' : 'opp'}">${escapeHtml(nameForPlayer(num))}: <b>${scores[num]}</b> pt</span>`)
+      .join('');
   } else {
+    scoreRowEl.classList.remove('local-multi');
     scoreRowEl.style.display = 'none';
   }
 }
@@ -6603,23 +6633,45 @@ function commitEntry(entry, skipPrefetch){
 function checkChainLimitEnd(){
   if(over || !chainLimit || chain.length < chainLimit) return;
   if(mode !== 'pvp' && mode !== 'cpu' && mode !== 'local') return;
-  const key1 = (mode === 'pvp' || mode === 'local') ? 1 : 'me';
-  const key2 = (mode === 'pvp' || mode === 'local') ? 2 : 'cpu';
+
+  if(mode === 'local'){
+    // N-spelers-versie: gewoon de hoogste van alle scores zoeken, in plaats
+    // van de vaste 2-spelers-vergelijking hieronder.
+    const scores = computeScores();
+    let winner = 0, best = -Infinity, tie = false;
+    for(let i=1; i<=localPlayerCount; i++){
+      if(scores[i] > best){ best = scores[i]; winner = i; tie = false; }
+      else if(scores[i] === best){ tie = true; }
+    }
+    if(tie) winner = 0;
+    endWinner = winner;
+    const scoreLine = '(' + Array.from({length: localPlayerCount}, (_, i) => i+1)
+      .map(n => nameForPlayer(n) + ': ' + scores[n] + 'pt').join(' — ') + ')';
+    const limitWord = gameLang==='nl' ? 'Kettinglimiet van' : 'Chain limit of';
+    const bereikt = gameLang==='nl' ? 'bereikt' : 'reached';
+    const msg = winner === 0
+      ? `★ ${limitWord} ${chainLimit} ${bereikt} — ${gameLang==='nl'?'gelijkspel!':'draw!'} ★ ${scoreLine}`
+      : `★ ${limitWord} ${chainLimit} ${bereikt} — ${nameForPlayer(winner)} ${gameLang==='nl'?'wint!':'wins!'} ★ ${scoreLine}`;
+    endGameUI(msg);
+    recordGameEnd(winner !== 0, best);
+    return;
+  }
+
+  const key1 = mode === 'pvp' ? 1 : 'me';
+  const key2 = mode === 'pvp' ? 2 : 'cpu';
   const s1 = computeScoreFor(key1), s2 = computeScoreFor(key2);
   let winner = 0;
-  if(s1 > s2) winner = (mode === 'pvp' || mode === 'local') ? 1 : 'me';
-  else if(s2 > s1) winner = (mode === 'pvp' || mode === 'local') ? 2 : 'cpu';
+  if(s1 > s2) winner = mode === 'pvp' ? 1 : 'me';
+  else if(s2 > s1) winner = mode === 'pvp' ? 2 : 'cpu';
   endWinner = winner;
-  const label1 = (mode === 'pvp' || mode === 'local') ? nameForPlayer(1) : (gameLang==='nl'?'Jij':'You');
-  const label2 = (mode === 'pvp' || mode === 'local') ? nameForPlayer(2) : (gameLang==='nl'?'Computer':'Computer');
+  const label1 = mode === 'pvp' ? nameForPlayer(1) : (gameLang==='nl'?'Jij':'You');
+  const label2 = mode === 'pvp' ? nameForPlayer(2) : (gameLang==='nl'?'Computer':'Computer');
   const scoreLine = `(${label1}: ${s1}pt — ${label2}: ${s2}pt)`;
   const limitWord = gameLang==='nl' ? 'Kettinglimiet van' : 'Chain limit of';
   const bereikt = gameLang==='nl' ? 'bereikt' : 'reached';
   let msg;
   if(winner === 0 || winner === ''){
     msg = `★ ${limitWord} ${chainLimit} ${bereikt} — ${gameLang==='nl'?'gelijkspel!':'draw!'} ★ ${scoreLine}`;
-  } else if(mode === 'local'){
-    msg = `★ ${limitWord} ${chainLimit} ${bereikt} — ${nameForPlayer(winner)} ${gameLang==='nl'?'wint!':'wins!'} ★ ${scoreLine}`;
   } else if(winner === myPlayerNum || winner === 'me'){
     msg = `★ ${limitWord} ${chainLimit} ${bereikt} — ${gameLang==='nl'?'JIJ WINT!':'YOU WIN!'} ★ ${scoreLine}`;
   } else {
@@ -6627,8 +6679,8 @@ function checkChainLimitEnd(){
     msg = `★ ${limitWord} ${chainLimit} ${bereikt} — ${winnerLabel} ${gameLang==='nl'?'wint!':'wins!'} ★ ${scoreLine}`;
   }
   endGameUI(msg);
-  const iWon = mode === 'local' ? (winner !== 0 && winner !== '') : (mode === 'pvp' ? (winner === myPlayerNum) : (winner === 'me'));
-  const scoreForStats = mode === 'local' ? Math.max(s1, s2) : (mode === 'pvp' ? (myPlayerNum === 1 ? s1 : s2) : s1);
+  const iWon = mode === 'pvp' ? (winner === myPlayerNum) : (winner === 'me');
+  const scoreForStats = mode === 'pvp' ? (myPlayerNum === 1 ? s1 : s2) : s1;
   recordGameEnd(iWon, scoreForStats);
   if(mode === 'pvp') publishState();
   if(mode === 'cpu') saveCpuGame();
@@ -6761,23 +6813,39 @@ function hideHandoffOverlay(){
 }
 handoffReadyBtn.addEventListener('click', hideHandoffOverlay);
 
+function rebuildLocalNameInputs(){
+  const n = parseInt(localPlayerCountSelect.value, 10) || 2;
+  const defaultNames = uiLang === 'nl'
+    ? ['Corné','Robin','Sanne','Bram','Julia','Max']
+    : ['Alex','Sam','Jamie','Robin','Casey','Drew'];
+  localNameInputsWrap.innerHTML = Array.from({length: n}, (_, i) => {
+    const label = uiLang === 'nl' ? `Naam speler ${i+1}` : `Player ${i+1} name`;
+    return `<label class="small" style="display:block;margin-top:${i===0?0:10}px;">${label}</label>
+      <input type="text" class="local-name-input" id="localNameInput${i+1}" placeholder="bijv. ${defaultNames[i]}" maxlength="20">`;
+  }).join('');
+}
+localPlayerCountSelect.addEventListener('change', rebuildLocalNameInputs);
 showLocalSetupBtn.addEventListener('click', () => {
   lobbyEl.style.display = 'none';
   localSetupLobbyEl.style.display = 'block';
+  rebuildLocalNameInputs();
 });
 backFromLocalSetupBtn.addEventListener('click', () => {
   localSetupLobbyEl.style.display = 'none';
   lobbyEl.style.display = 'block';
 });
 startLocalGameBtn.addEventListener('click', () => {
-  const n1 = localP1NameInput.value.trim().slice(0, 20);
-  const n2 = localP2NameInput.value.trim().slice(0, 20);
+  const n = parseInt(localPlayerCountSelect.value, 10) || 2;
+  localPlayerCount = n;
+  const defaultLabel = uiLang === 'nl' ? 'Speler' : 'Player';
+  localPlayerNames = Array.from({length: n}, (_, i) => {
+    const el = document.getElementById('localNameInput' + (i+1));
+    const v = el ? el.value.trim().slice(0, 20) : '';
+    return v || (defaultLabel + ' ' + (i+1));
+  });
   mode = 'local';
   applyGameLanguage(localGameLangSelect.value === 'en' ? 'en' : 'nl');
   chainLimit = parseInt(localChainLimitSelect.value, 10) || 0;
-  player1Name = n1 || (uiLang === 'nl' ? 'Speler 1' : 'Player 1');
-  player2Name = n2 || (uiLang === 'nl' ? 'Speler 2' : 'Player 2');
-  player1Fav = ''; player2Fav = '';
   turnNum = 1; myPlayerNum = null;
   resetGameState();
   localSetupLobbyEl.style.display = 'none';
@@ -6789,7 +6857,7 @@ startLocalGameBtn.addEventListener('click', () => {
 
 function showGameOverModal(){
   if(mode === 'local'){
-    const s1 = computeScoreFor(1), s2 = computeScoreFor(2);
+    const scores = computeScores();
     const isDraw = !endWinner;
     const newAnimals = countNewAnimalsThisGame();
     gameoverKickerEl.textContent = uiLang === 'nl' ? 'EXPEDITIE VOLTOOID' : 'EXPEDITION COMPLETE';
@@ -6800,8 +6868,10 @@ function showGameOverModal(){
     const L = uiLang === 'nl'
       ? { score:'eindstand', total:'dieren totaal', nieuw:'nieuwe dieren' }
       : { score:'final score', total:'animals total', nieuw:'new animals' };
+    const scoreValue = Array.from({length: localPlayerCount}, (_, i) => scores[i+1]).join('-');
+    const scoreLabel = Array.from({length: localPlayerCount}, (_, i) => nameForPlayer(i+1)).join(' - ');
     gameoverStatsEl.innerHTML = `
-      <div class="gameover-stat"><div class="gameover-stat-value">${s1}-${s2}</div><div class="gameover-stat-label">${nameForPlayer(1)} - ${nameForPlayer(2)}</div></div>
+      <div class="gameover-stat"><div class="gameover-stat-value">${scoreValue}</div><div class="gameover-stat-label">${scoreLabel}</div></div>
       <div class="gameover-stat"><div class="gameover-stat-value">${chain.length}</div><div class="gameover-stat-label">${L.total}</div></div>
       <div class="gameover-stat"><div class="gameover-stat-value">${newAnimals}</div><div class="gameover-stat-label">${L.nieuw}</div></div>
     `;
@@ -7014,7 +7084,7 @@ function handleSubmit(){
       endGameUI(gameLang==='nl' ? (nameForPlayer(turnNum) + ' wint! Geen dieren meer met "' + required + '".') : (nameForPlayer(turnNum) + ' wins! No animals left starting with "' + required + '".'));
       recordGameEnd(true, computeScoreFor(turnNum));
     } else {
-      turnNum = (turnNum === 1) ? 2 : 1;
+      turnNum = (turnNum % localPlayerCount) + 1;
       updateTurnBanner();
       showHandoffOverlay();
     }
