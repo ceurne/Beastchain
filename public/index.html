@@ -637,17 +637,17 @@
 </head>
 <body>
 
-<div id="coverPerspective" style="position:fixed;inset:0;z-index:10000;perspective:1400px;">
-  <div id="bookCover" style="position:absolute;inset:0;background:#e8dcc0;transform-style:preserve-3d;transform-origin:left center;transition:transform 2.4s cubic-bezier(.6,0,.3,1);box-shadow:0 0 40px rgba(0,0,0,.4) inset;overflow:hidden;">
-    <img src="game-assets/cover-millot.jpg" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;height:100%;object-fit:cover;">
-  </div>
+<div id="coverPerspective" style="position:fixed;inset:0;z-index:10000;background:#e8dcc0;display:flex;align-items:flex-start;justify-content:center;padding-top:calc(env(safe-area-inset-top, 20px) + 24px);transition:opacity 0.6s ease;">
+  <img src="game-assets/cover-millot.jpg" style="width:100%;height:calc(100% - 24px);object-fit:contain;object-position:top;">
 </div>
 <script>
   setTimeout(() => {
-    const cover = document.getElementById('bookCover');
-    if(cover) cover.style.transform = 'rotateY(-150deg)';
-    setTimeout(() => { const p = document.getElementById('coverPerspective'); if(p) p.remove(); }, 2600);
-  }, 500);
+    const cover = document.getElementById('coverPerspective');
+    if(cover){
+      cover.style.opacity = '0';
+      setTimeout(() => cover.remove(), 650);
+    }
+  }, 3500);
 </script>
 
 <div id="loadingScreen" style="position:fixed;inset:0;background:#f0e6cf;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;">
@@ -8266,7 +8266,9 @@ function hideLoadingScreen(){
   // = 2900ms voor het laadscherm er ueberhaupt zichtbaar achter vandaan komt.
   // Deze waarde moet dus ruim daarboven blijven, anders kan het laadscherm soms
   // al weer verdwenen zijn nog voor de kaft klaar is met openklappen.
-  const MIN_VISIBLE_MS = 4100;
+  // Het plaatje zelf blijft nu 3500ms + 650ms wegfade-tijd staan, dus dit moet
+  // ruim daarboven blijven zodat het laadscherm niet al weer verdwenen is.
+  const MIN_VISIBLE_MS = 5600;
   const shownAt = window.__loadingScreenShownAt || Date.now();
   const elapsed = Date.now() - shownAt;
   const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
