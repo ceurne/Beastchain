@@ -640,15 +640,35 @@
 
 <div id="coverPerspective" style="position:fixed;inset:0;z-index:10000;perspective:1400px;">
   <div id="bookCover" style="position:absolute;inset:0;background:#e8dcc0;transform-style:preserve-3d;transform-origin:left center;transition:transform 2.4s cubic-bezier(.6,0,.3,1);box-shadow:0 0 40px rgba(0,0,0,.4) inset;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden;">
-    <img src="game-assets/cover-millot.jpg" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;height:100%;object-fit:cover;">
+    <img id="coverImg" src="game-assets/cover-millot.jpg" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;height:100%;object-fit:cover;">
   </div>
 </div>
 <script>
-  setTimeout(() => {
-    const cover = document.getElementById('bookCover');
-    if(cover) cover.style.transform = 'rotateY(-150deg)';
-    setTimeout(() => { const p = document.getElementById('coverPerspective'); if(p) p.remove(); }, 2600);
-  }, 900);
+  // Wacht op het daadwerkelijk laden van de afbeelding zelf, in plaats van
+  // blind een vaste tijd aan te houden -- bij een trage verbinding kon de
+  // kaft anders al beginnen open te klappen (of zelfs al verdwenen zijn)
+  // voordat de afbeelding uberhaupt zichtbaar was geworden. Met een
+  // veiligheidsgrens van 3s voor het geval de afbeelding nooit laadt.
+  (function(){
+    const img = document.getElementById('coverImg');
+    let started = false;
+    function startOpening(){
+      if(started) return;
+      started = true;
+      setTimeout(() => {
+        const cover = document.getElementById('bookCover');
+        if(cover) cover.style.transform = 'rotateY(-150deg)';
+        setTimeout(() => { const p = document.getElementById('coverPerspective'); if(p) p.remove(); }, 2600);
+      }, 900);
+    }
+    if(img.complete && img.naturalWidth > 0){
+      startOpening();
+    } else {
+      img.addEventListener('load', startOpening);
+      img.addEventListener('error', startOpening);
+      setTimeout(startOpening, 3000);
+    }
+  })();
 </script>
 
 <div id="loadingScreen" style="position:fixed;inset:0;background:#f0e6cf;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;">
@@ -1883,7 +1903,7 @@ function awardAchievement(playerKey, catId, tier, entryName){
   appendToScreen(row);
 
   if(isLocalPlayer(playerKey)){
-    recordGlobalAchievement(catId, tier, def[tier].n, def);
+    recordGlobalAchievement(catId, tier, achvThreshold(def[tier].n), def);
   }
 
   // De lint-melding verschijnt alleen bij de speler die de prestatie zelf
@@ -2037,13 +2057,26 @@ function checkPlayerAchievements(entry){
     for(const tier of ['bronze','silver','gold']){
       const key = playerKey+'-'+cat+'-'+tier;
       if(awardedAchievements.has(key)) continue;
-      if(count >= def[tier].n) awardAchievement(playerKey, cat, tier, entry.name);
+      if(count >= achvThreshold(def[tier].n)) awardAchievement(playerKey, cat, tier, entry.name);
     }
   }
 }
 
 function normalizePlayerKey(playerKey){
   return isNaN(playerKey) ? playerKey : parseInt(playerKey, 10);
+}
+
+// Prestatie-drempels gaan uit van zo'n beetje de helft van de beurten in een
+// spel (2 spelers, of jij tegen de computer). Bij lokaal spelen met meer dan
+// 2 mensen op één toestel krijgt iedereen evenredig minder beurten, dus
+// zouden zelfs de laagste medailles bij 5-6 spelers wiskundig onhaalbaar
+// worden als de drempels ongewijzigd zouden blijven. Daarom schalen we de
+// drempel hier mee met het aantal spelers, met 2 spelers als uitgangspunt.
+function achvThreshold(n){
+  if(mode === 'local' && localPlayerCount > 2){
+    return Math.max(1, Math.round(n * 2 / localPlayerCount));
+  }
+  return n;
 }
 
 const ACHV_CAT_STYLE = {
@@ -2082,7 +2115,7 @@ function renderAchievementsPanel(){
     const counts = computePlayerCategoryCounts(playerKey);
     const count = counts[cat] || 0;
     const nextTier = tier === 'gold' ? null : (tier === 'silver' ? 'gold' : 'silver');
-    const nextThreshold = nextTier ? def[nextTier].n : null;
+    const nextThreshold = nextTier ? achvThreshold(def[nextTier].n) : null;
     const progressRatio = nextThreshold ? count / nextThreshold : 1;
     // Toon de eigen naam als die is ingesteld, anders de standaard "JIJ"/"YOU".
     const myLabel = getPlayerName() || (uiLang==='nl'?'JIJ':'YOU');
@@ -2139,8 +2172,8 @@ function renderAchievementsPanel(){
         return aKnown - bKnown;
       });
       const desc = gameLang === 'nl'
-        ? `${r.def.name} — behaald door ${r.def[r.tier].n} dieren uit deze categorie te noemen.`
-        : `${r.def.name} — earned by naming ${r.def[r.tier].n} animals in this category.`;
+        ? `${r.def.name} — behaald door ${achvThreshold(r.def[r.tier].n)} dieren uit deze categorie te noemen.`
+        : `${r.def.name} — earned by naming ${achvThreshold(r.def[r.tier].n)} animals in this category.`;
       expandEl.innerHTML = `<div class="achv-expand-desc">${escapeHtml(desc)}</div>
         <div class="achv-expand-animals">${animalNames.map(n => escapeHtml(n)).join(', ')}</div>`;
       expandEl.style.display = 'block';
@@ -2887,9 +2920,9 @@ function computeScoreFor(playerKey){
   }
   for(const [cat, def] of Object.entries(ACHIEVEMENTS)){
     const c = counts[cat] || 0;
-    if(c >= def.bronze.n) score += 3;
-    if(c >= def.silver.n) score += 5;
-    if(c >= def.gold.n) score += 10;
+    if(c >= achvThreshold(def.bronze.n)) score += 3;
+    if(c >= achvThreshold(def.silver.n)) score += 5;
+    if(c >= achvThreshold(def.gold.n)) score += 10;
   }
   return score;
 }
