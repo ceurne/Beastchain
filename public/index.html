@@ -8627,7 +8627,7 @@ checkForInviteLink();
     void el.offsetWidth; // forceer een reflow zodat dit echt zonder animatie wordt toegepast
     el.style.transition = '';
   }
-  function updateBiome(forceIndex){
+  function updateBiome(forceIndex, currentSpeed){
     const idx = forceIndex !== undefined ? forceIndex : Math.floor(score / BIOME_SCORE_STEP) % BIOMES.length;
     if(idx === currentBiomeIndex) return;
     currentBiomeIndex = idx;
@@ -8653,6 +8653,18 @@ checkForInviteLink();
     // rechts, krijgt meteen de nieuwe omgeving, en schuift dan samen met de
     // huidige laag (die naar links verdwijnt) naar binnen -- dat sluit aan
     // bij de rest van het spel, waar alles al naar links beweegt.
+    // De duur wordt zo berekend dat de schuifsnelheid EXACT gelijk is aan de
+    // snelheid waarmee het pad en de obstakels op dat moment al bewegen --
+    // zonder dat zou de wissel als een aparte, veel te snelle sprong voelen
+    // t.o.v. de rest van het spel.
+    const slideSpeed = currentSpeed || 190;
+    const slideDurationMs = (stageWidthPx / slideSpeed) * 1000;
+    const durationStr = slideDurationMs + 'ms';
+    skyElCurrent.style.transitionDuration = durationStr;
+    skyElNext.style.transitionDuration = durationStr;
+    groundElCurrent.style.transitionDuration = durationStr;
+    groundElNext.style.transitionDuration = durationStr;
+
     skyElNext.style.backgroundImage = `url('game-assets/${biome.sky}')`;
     skyElNext.style.backgroundPositionX = '0px';
     skyWrapEl.style.aspectRatio = String(biome.skyAspect);
@@ -8673,7 +8685,7 @@ checkForInviteLink();
       skyScrollX = 0;
       [groundElCurrent, groundElNext] = [groundElNext, groundElCurrent];
       instantTransform(groundElNext, 100);
-    }, 500);
+    }, slideDurationMs);
   }
 
   try{ best = parseInt(localStorage.getItem(CAPIRUN_BEST_KEY), 10) || 0; }catch(e){ best = 0; }
@@ -8756,8 +8768,8 @@ checkForInviteLink();
     // score & moeilijkheidsgraad
     score += dt * 100;
     scoreEl.textContent = String(Math.floor(score)).padStart(5,'0');
-    updateBiome();
     const speed = 190 + Math.min(score, 3000) * 0.09; // wordt geleidelijk sneller
+    updateBiome(undefined, speed);
 
     // het pad onder de capibara schuift met dezelfde snelheid mee als de
     // obstakels -- dat verkoopt het rennen veel overtuigender dan een
