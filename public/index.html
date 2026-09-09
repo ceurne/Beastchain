@@ -8612,6 +8612,7 @@ checkForInviteLink();
   // omgeving (en dus ook andere dieren-obstakels), daarna weer van voren af aan.
   const BIOME_SCORE_STEP = 700;
   let currentBiomeIndex = -1; // -1 dwingt de allereerste updateBiome() om altijd te wisselen
+  let biomeTransitionTimer = null; // lopende rolwissel-timeout van een schuif-overgang, zie updateBiome()
 
   function getObstaclePool(){
     const idx = currentBiomeIndex >= 0 ? currentBiomeIndex : 0;
@@ -8632,6 +8633,13 @@ checkForInviteLink();
     if(idx === currentBiomeIndex) return;
     currentBiomeIndex = idx;
     const biome = BIOMES[idx];
+
+    // Een eerder geplande rolwissel (zie setTimeout hieronder) mag nooit later
+    // nog afgaan -- anders wisselt hij de lagen om terwijl er inmiddels alweer
+    // een nieuw potje of een nieuwe overgang bezig is, waardoor de zichtbare
+    // achtergrondlaag per ongeluk onzichtbaar wordt weggezet. Dit was de oorzaak
+    // van de verdwenen achtergrond bij "opnieuw spelen".
+    if(biomeTransitionTimer){ clearTimeout(biomeTransitionTimer); biomeTransitionTimer = null; }
 
     if(forceIndex !== undefined){
       // Bij het (her)starten van een potje meteen tonen -- daar hoeft niets
@@ -8676,7 +8684,8 @@ checkForInviteLink();
     groundElCurrent.style.transform = 'translateX(-100%)';
     groundElNext.style.transform = 'translateX(0%)';
 
-    setTimeout(() => {
+    biomeTransitionTimer = setTimeout(() => {
+      biomeTransitionTimer = null;
       // Rolwissel: de laag die net binnenschoof is nu de actieve; de oude
       // gaat weer klaarstaan rechts buiten beeld voor de volgende keer --
       // instant, zodat dit teruszetten zelf niet nog eens zichtbaar meeschuift.
