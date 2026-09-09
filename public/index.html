@@ -474,7 +474,10 @@
      mee per biome zodat hij niet als los, neutraal element oogt. Samen
      bepalen ze de (variabele) hoogte van het speelveld. */
   .capirun-sky{ display:block; width:100%; height:auto; }
-  .capirun-ground{ display:block; width:100%; height:66px; object-fit:cover; }
+  /* Naadloos herhalende tegel, horizontaal meegeschoven in de game-loop
+     (zie updateGroundScroll) zodat het pad onder de capibara meebeweegt --
+     dat verkoopt het gevoel van rennen veel beter dan een stilstaand pad. */
+  .capirun-ground{ display:block; width:100%; height:66px; background-repeat:repeat-x; background-size:auto 66px; }
   .capirun-hud{ position:absolute; top:8px; right:10px; z-index:5; pointer-events:none; }
   .capirun-hud-inner{ background: rgba(250,245,230,.88); border-radius:8px; padding:5px 10px; box-shadow:0 2px 4px rgba(0,0,0,.15); }
   .capirun-score{ font-family:'DM Sans', monospace; font-weight:700; font-size:16px; color: var(--ink); text-align:right; }
@@ -1001,7 +1004,7 @@
       <button class="lightbox-close" id="capiRunCloseBtn" style="position:absolute;top:10px;right:10px;z-index:20;">×</button>
       <div class="capirun-stage" id="capiRunStage">
         <img class="capirun-sky" id="capiRunSky" src="game-assets/capirun_sky_meadow.jpg" alt="">
-        <img class="capirun-ground" id="capiRunGround" src="game-assets/capirun_ground_meadow.jpg" alt="">
+        <div class="capirun-ground" id="capiRunGround" style="background-image:url('game-assets/capirun_ground_meadow.jpg');"></div>
         <div class="capirun-hud"><div class="capirun-hud-inner">
           <div class="capirun-score" id="capiRunScore">0</div>
           <div class="capirun-best">TOPSCORE <span id="capiRunBest">0</span></div>
@@ -8539,6 +8542,7 @@ checkForInviteLink();
   let score = 0, best = 0;
   let stageWidthPx = 360;
   let rafId = null;
+  let groundScrollX = 0; // schuift met dezelfde snelheid als de obstakels mee, voor het rennen-gevoel
 
   // Stenen zijn overal bruikbaar (neutraal, geen dier), en zijn qua vorm
   // redelijk egaal gevuld -- het botsingsvak mag daarom de volledige
@@ -8585,7 +8589,7 @@ checkForInviteLink();
     if(idx === currentBiomeIndex) return;
     currentBiomeIndex = idx;
     skyEl.src = 'game-assets/' + BIOMES[idx].sky;
-    groundEl.src = 'game-assets/' + BIOMES[idx].ground;
+    groundEl.style.backgroundImage = `url('game-assets/${BIOMES[idx].ground}')`;
   }
 
   try{ best = parseInt(localStorage.getItem(CAPIRUN_BEST_KEY), 10) || 0; }catch(e){ best = 0; }
@@ -8607,6 +8611,7 @@ checkForInviteLink();
     obstacles = [];
     y = 0; vy = 0; onGround = true;
     score = 0; scoreEl.textContent = '00000';
+    groundScrollX = 0; groundEl.style.backgroundPositionX = '0px';
     updateBiome(0);
     spawnTimer = 0; nextSpawnAt = 900 + Math.random()*400;
     pendingDoubleSpawnAt = null;
@@ -8669,6 +8674,12 @@ checkForInviteLink();
     scoreEl.textContent = String(Math.floor(score)).padStart(5,'0');
     updateBiome();
     const speed = 190 + Math.min(score, 3000) * 0.09; // wordt geleidelijk sneller
+
+    // het pad onder de capibara schuift met dezelfde snelheid mee als de
+    // obstakels -- dat verkoopt het rennen veel overtuigender dan een
+    // stilstaand pad
+    groundScrollX -= speed * dt;
+    groundEl.style.backgroundPositionX = groundScrollX + 'px';
 
     // fysica van de sprong
     if(!onGround){
