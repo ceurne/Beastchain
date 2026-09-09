@@ -473,7 +473,13 @@
      gewoon ONDER, niet overlappend; de kleur van die strook wisselt licht
      mee per biome zodat hij niet als los, neutraal element oogt. Samen
      bepalen ze de (variabele) hoogte van het speelveld. */
-  .capirun-sky{ display:block; width:100%; height:auto; }
+  /* De container is expres iets smaller (hoger, relatief) dan de eigen
+     beeldverhouding van de afbeelding, zodat achtergrond breder uitrendert
+     dan de zichtbare breedte -- dat overschot is precies de ruimte waarin
+     de langzame parallax-pan (zie updateSkyPan) kan bewegen zonder ooit
+     een rand van de afbeelding te laten zien. Hoogte blijft dus altijd
+     100% zichtbaar, er wordt nooit verticaal gecropt. */
+  .capirun-sky{ display:block; width:100%; background-repeat:no-repeat; background-size:auto 100%; background-position:0 0; }
   /* Naadloos herhalende tegel, horizontaal meegeschoven in de game-loop
      (zie updateGroundScroll) zodat het pad onder de capibara meebeweegt --
      dat verkoopt het gevoel van rennen veel beter dan een stilstaand pad. */
@@ -1003,7 +1009,7 @@
     <div class="capirun-card">
       <button class="lightbox-close" id="capiRunCloseBtn" style="position:absolute;top:10px;right:10px;z-index:20;">×</button>
       <div class="capirun-stage" id="capiRunStage">
-        <img class="capirun-sky" id="capiRunSky" src="game-assets/capirun_sky_meadow.jpg" alt="">
+        <div class="capirun-sky" id="capiRunSky" style="background-image:url('game-assets/capirun_sky_meadow.jpg'); aspect-ratio: 462/246;"></div>
         <div class="capirun-ground" id="capiRunGround" style="background-image:url('game-assets/capirun_ground_meadow.jpg');"></div>
         <div class="capirun-hud"><div class="capirun-hud-inner">
           <div class="capirun-score" id="capiRunScore">0</div>
@@ -8543,6 +8549,7 @@ checkForInviteLink();
   let stageWidthPx = 360;
   let rafId = null;
   let groundScrollX = 0; // schuift met dezelfde snelheid als de obstakels mee, voor het rennen-gevoel
+  let skyScrollX = 0; // langzame parallax-pan van de achtergrond, begrensd zodat de rand nooit in beeld komt
 
   // Stenen zijn overal bruikbaar (neutraal, geen dier), en zijn qua vorm
   // redelijk egaal gevuld -- het botsingsvak mag daarom de volledige
@@ -8556,22 +8563,25 @@ checkForInviteLink();
   // meewisselen naarmate de score oploopt. hitboxW blijft ruim onder de volle
   // breedte -- dat is eerlijker dan botsen met de (deels doorzichtige) rand
   // van elk dierplaatje.
+  // skyAspect = de eigen beeldverhouding van de afbeelding gedeeld door 1.3
+  // -- dat "overschot" van 30% breedte is precies de ruimte waarin de
+  // langzame parallax-pan straks heen en weer kan (zie updateSkyPan/loop).
   const BIOMES = [
-    { name:'meadow', sky:'capirun_sky_meadow.jpg', ground:'capirun_ground_meadow.jpg', animals:[
+    { name:'meadow', sky:'capirun_sky_meadow.jpg', skyAspect:(600/246)/1.3, ground:'capirun_ground_meadow.jpg', animals:[
       { file:'capirun_obstacle_turtle.png', w:32, h:16, hitboxW:27 }
     ]},
-    { name:'forest', sky:'capirun_sky_forest.jpg', ground:'capirun_ground_forest.jpg', animals:[
+    { name:'forest', sky:'capirun_sky_forest.jpg', skyAspect:(1600/700)/1.3, ground:'capirun_ground_forest.jpg', animals:[
       { file:'capirun_obstacle_wolf1.png', w:44, h:22, hitboxW:37 },
       { file:'capirun_obstacle_wolf2.png', w:34, h:25, hitboxW:28 }
     ]},
-    { name:'desert', sky:'capirun_sky_desert.jpg', ground:'capirun_ground_desert.jpg', animals:[
+    { name:'desert', sky:'capirun_sky_desert.jpg', skyAspect:(1600/700)/1.3, ground:'capirun_ground_desert.jpg', animals:[
       { file:'capirun_obstacle_snake.png', w:30, h:29, hitboxW:24 }
     ]},
-    { name:'snow', sky:'capirun_sky_snow.jpg', ground:'capirun_ground_snow.jpg', animals:[
+    { name:'snow', sky:'capirun_sky_snow.jpg', skyAspect:(1600/700)/1.3, ground:'capirun_ground_snow.jpg', animals:[
       { file:'capirun_obstacle_bear_walk.png', w:44, h:19, hitboxW:38 },
       { file:'capirun_obstacle_bear_sit.png', w:34, h:33, hitboxW:28 }
     ]},
-    { name:'rural', sky:'capirun_sky_rural.jpg', ground:'capirun_ground_rural.jpg', animals:[
+    { name:'rural', sky:'capirun_sky_rural.jpg', skyAspect:(1600/700)/1.3, ground:'capirun_ground_rural.jpg', animals:[
       { file:'capirun_obstacle_turtle.png', w:32, h:16, hitboxW:27 }
     ]}
   ];
@@ -8588,7 +8598,9 @@ checkForInviteLink();
     const idx = forceIndex !== undefined ? forceIndex : Math.floor(score / BIOME_SCORE_STEP) % BIOMES.length;
     if(idx === currentBiomeIndex) return;
     currentBiomeIndex = idx;
-    skyEl.src = 'game-assets/' + BIOMES[idx].sky;
+    skyEl.style.backgroundImage = `url('game-assets/${BIOMES[idx].sky}')`;
+    skyEl.style.aspectRatio = String(BIOMES[idx].skyAspect);
+    skyScrollX = 0; skyEl.style.backgroundPositionX = '0px';
     groundEl.style.backgroundImage = `url('game-assets/${BIOMES[idx].ground}')`;
   }
 
@@ -8680,6 +8692,13 @@ checkForInviteLink();
     // stilstaand pad
     groundScrollX -= speed * dt;
     groundEl.style.backgroundPositionX = groundScrollX + 'px';
+
+    // de achtergrond zelf schuift veel langzamer mee (parallax-diepte-effect),
+    // en begrensd tot precies het "overschot" dat skyAspect ruimte geeft --
+    // zo komt de rand van de afbeelding nooit in beeld
+    const skyMaxPan = stageWidthPx * 0.3;
+    skyScrollX = Math.max(skyScrollX - speed * dt * 0.15, -skyMaxPan);
+    skyEl.style.backgroundPositionX = skyScrollX + 'px';
 
     // fysica van de sprong
     if(!onGround){
