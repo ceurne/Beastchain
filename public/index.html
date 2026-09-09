@@ -464,13 +464,17 @@
     display:flex; flex-direction:column;
   }
   .capirun-stage{
-    position:relative; width:100%; height:260px; border-radius:8px; overflow:hidden;
+    position:relative; width:100%; border-radius:8px; overflow:hidden;
     border:1px solid var(--border); box-shadow: inset 0 0 0 2px var(--card); margin-top:4px;
   }
-  /* De grondstrook (het zandpad waar de capibara op rent) blijft altijd
-     hetzelfde -- alleen de lucht/omgeving erboven wisselt per biome. */
-  .capirun-sky{ position:absolute; top:0; left:0; width:100%; height:calc(100% - 66px); object-fit:cover; }
-  .capirun-ground{ position:absolute; bottom:0; left:0; width:100%; height:66px; object-fit:cover; }
+  /* De lucht/omgeving toont nu de volledige biome-afbeelding (geen crop) --
+     de hoogte volgt gewoon uit de eigen beeldverhouding. De grondstrook (het
+     zandpad waar de capibara op rent) komt er in de normale documentflow
+     gewoon ONDER, niet overlappend; de kleur van die strook wisselt licht
+     mee per biome zodat hij niet als los, neutraal element oogt. Samen
+     bepalen ze de (variabele) hoogte van het speelveld. */
+  .capirun-sky{ display:block; width:100%; height:auto; }
+  .capirun-ground{ display:block; width:100%; height:66px; object-fit:cover; }
   .capirun-hud{ position:absolute; top:8px; right:10px; z-index:5; pointer-events:none; }
   .capirun-hud-inner{ background: rgba(250,245,230,.88); border-radius:8px; padding:5px 10px; box-shadow:0 2px 4px rgba(0,0,0,.15); }
   .capirun-score{ font-family:'DM Sans', monospace; font-weight:700; font-size:16px; color: var(--ink); text-align:right; }
@@ -997,7 +1001,7 @@
       <button class="lightbox-close" id="capiRunCloseBtn" style="position:absolute;top:10px;right:10px;z-index:20;">×</button>
       <div class="capirun-stage" id="capiRunStage">
         <img class="capirun-sky" id="capiRunSky" src="game-assets/capirun_sky_meadow.jpg" alt="">
-        <img class="capirun-ground" src="game-assets/capirun_ground.jpg" alt="">
+        <img class="capirun-ground" id="capiRunGround" src="game-assets/capirun_ground_meadow.jpg" alt="">
         <div class="capirun-hud"><div class="capirun-hud-inner">
           <div class="capirun-score" id="capiRunScore">0</div>
           <div class="capirun-best">TOPSCORE <span id="capiRunBest">0</span></div>
@@ -8509,6 +8513,7 @@ checkForInviteLink();
   const openBtn = document.getElementById('capiRunOpenBtn');
   const closeBtn = document.getElementById('capiRunCloseBtn');
   const skyEl = document.getElementById('capiRunSky');
+  const groundEl = document.getElementById('capiRunGround');
 
   const GROUND_Y = 34; // px vanaf de onderkant van het speelveld
   const GRAVITY = 1250; // px/s^2 -- iets zachter, voor een vergevingsgezinder sprongboog
@@ -8548,21 +8553,21 @@ checkForInviteLink();
   // breedte -- dat is eerlijker dan botsen met de (deels doorzichtige) rand
   // van elk dierplaatje.
   const BIOMES = [
-    { name:'meadow', sky:'capirun_sky_meadow.jpg', animals:[
+    { name:'meadow', sky:'capirun_sky_meadow.jpg', ground:'capirun_ground_meadow.jpg', animals:[
       { file:'capirun_obstacle_turtle.png', w:32, h:16, hitboxW:27 }
     ]},
-    { name:'forest', sky:'capirun_sky_forest.jpg', animals:[
+    { name:'forest', sky:'capirun_sky_forest.jpg', ground:'capirun_ground_forest.jpg', animals:[
       { file:'capirun_obstacle_wolf1.png', w:44, h:22, hitboxW:37 },
       { file:'capirun_obstacle_wolf2.png', w:34, h:25, hitboxW:28 }
     ]},
-    { name:'desert', sky:'capirun_sky_desert.jpg', animals:[
+    { name:'desert', sky:'capirun_sky_desert.jpg', ground:'capirun_ground_desert.jpg', animals:[
       { file:'capirun_obstacle_snake.png', w:30, h:29, hitboxW:24 }
     ]},
-    { name:'snow', sky:'capirun_sky_snow.jpg', animals:[
+    { name:'snow', sky:'capirun_sky_snow.jpg', ground:'capirun_ground_snow.jpg', animals:[
       { file:'capirun_obstacle_bear_walk.png', w:44, h:19, hitboxW:38 },
       { file:'capirun_obstacle_bear_sit.png', w:34, h:33, hitboxW:28 }
     ]},
-    { name:'rural', sky:'capirun_sky_rural.jpg', animals:[
+    { name:'rural', sky:'capirun_sky_rural.jpg', ground:'capirun_ground_rural.jpg', animals:[
       { file:'capirun_obstacle_turtle.png', w:32, h:16, hitboxW:27 }
     ]}
   ];
@@ -8580,6 +8585,7 @@ checkForInviteLink();
     if(idx === currentBiomeIndex) return;
     currentBiomeIndex = idx;
     skyEl.src = 'game-assets/' + BIOMES[idx].sky;
+    groundEl.src = 'game-assets/' + BIOMES[idx].ground;
   }
 
   try{ best = parseInt(localStorage.getItem(CAPIRUN_BEST_KEY), 10) || 0; }catch(e){ best = 0; }
