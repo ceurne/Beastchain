@@ -993,7 +993,7 @@
     <div class="capirun-card">
       <button class="lightbox-close" id="capiRunCloseBtn" style="position:absolute;top:10px;right:10px;z-index:20;">×</button>
       <div class="capirun-stage" id="capiRunStage">
-        <img class="capirun-bg" src="game-assets/Achtergrond.gif" alt="">
+        <img class="capirun-bg" id="capiRunBg" src="game-assets/Achtergrond.gif" alt="">
         <div class="capirun-hud"><div class="capirun-hud-inner">
           <div class="capirun-score" id="capiRunScore">0</div>
           <div class="capirun-best">TOPSCORE <span id="capiRunBest">0</span></div>
@@ -1009,6 +1009,11 @@
         </div>
       </div>
       <button class="capirun-jumpbtn" id="capiRunJumpBtn"><div class="capirun-jumpbtn-sprite"></div><span class="capirun-jumpbtn-label" id="capiRunJumpLabel">SPRING</span></button>
+      <div style="font-size:8.5px; color: var(--ink-dim); text-align:center; margin-top:4px; line-height:1.5;">
+        Achtergronden: <a href="https://bongseng.itch.io/" target="_blank" rel="noopener" style="color:inherit;">Bongseng</a> ·
+        IJsbeer: <a href="https://www.freepik.com" target="_blank" rel="noopener" style="color:inherit;">pch.vector / Freepik</a> ·
+        Slang: <a href="https://www.vecteezy.com" target="_blank" rel="noopener" style="color:inherit;">Vecteezy.com</a>
+      </div>
     </div>
   </div>
 
@@ -8499,6 +8504,7 @@ checkForInviteLink();
   const modal = document.getElementById('capiRunModal');
   const openBtn = document.getElementById('capiRunOpenBtn');
   const closeBtn = document.getElementById('capiRunCloseBtn');
+  const bgEl = document.getElementById('capiRunBg');
 
   const GROUND_Y = 34; // px vanaf de onderkant van het speelveld
   const GRAVITY = 1250; // px/s^2 -- iets zachter, voor een vergevingsgezinder sprongboog
@@ -8525,21 +8531,52 @@ checkForInviteLink();
   let stageWidthPx = 360;
   let rafId = null;
 
-  // Voor stenen komt het botsingsvak overeen met de hele zichtbare breedte
-  // (die zijn redelijk egaal gevuld). Voor bomen is dat niet eerlijk: die
-  // hebben een brede kruin bovenin maar een dunne stam onderin, precies waar
-  // de capibara ook echt tegenaan zou lopen -- dus daar gebruiken we een
-  // smaller, specifiek op de stam gericht botsingsvak in plaats van de volle
-  // breedte van de afbeelding.
-  const OBSTACLE_FILES = [
+  // Stenen zijn overal bruikbaar (neutraal, geen dier), en zijn qua vorm
+  // redelijk egaal gevuld -- het botsingsvak mag daarom de volledige
+  // zichtbare breedte gebruiken.
+  const ROCKS = [
     { file:'rock_tallA.png', w:30, h:36, hitboxW:30 },
     { file:'rock_tallB.png', w:32, h:34, hitboxW:32 },
-    { file:'rock_tallF.png', w:26, h:31, hitboxW:26 },
-    { file:'tree_detailed.png', w:18, h:33, hitboxW:5 },
-    { file:'tree_fat_fall.png', w:22, h:33, hitboxW:6 },
-    { file:'tree_palmDetailedShort.png', w:30, h:33, hitboxW:7 },
-    { file:'tree_plateau_dark.png', w:17, h:31, hitboxW:5 }
+    { file:'rock_tallF.png', w:26, h:31, hitboxW:26 }
   ];
+  // Per omgeving een eigen setje dieren-obstakels, die met de achtergrond
+  // meewisselen naarmate de score oploopt. hitboxW blijft ruim onder de volle
+  // breedte -- dat is eerlijker dan botsen met de (deels doorzichtige) rand
+  // van elk dierplaatje.
+  const BIOMES = [
+    { name:'meadow', bg:'Achtergrond.gif', animals:[
+      { file:'capirun_obstacle_turtle.png', w:32, h:16, hitboxW:27 }
+    ]},
+    { name:'forest', bg:'capirun_bg_forest.jpg', animals:[
+      { file:'capirun_obstacle_wolf1.png', w:44, h:22, hitboxW:37 },
+      { file:'capirun_obstacle_wolf2.png', w:34, h:25, hitboxW:28 }
+    ]},
+    { name:'desert', bg:'capirun_bg_desert.jpg', animals:[
+      { file:'capirun_obstacle_snake.png', w:30, h:29, hitboxW:24 }
+    ]},
+    { name:'snow', bg:'capirun_bg_snow.jpg', animals:[
+      { file:'capirun_obstacle_bear_walk.png', w:44, h:19, hitboxW:38 },
+      { file:'capirun_obstacle_bear_sit.png', w:34, h:33, hitboxW:28 }
+    ]},
+    { name:'rural', bg:'capirun_bg_rural.jpg', animals:[
+      { file:'capirun_obstacle_turtle.png', w:32, h:16, hitboxW:27 }
+    ]}
+  ];
+  // Elke BIOME_SCORE_STEP punten schuift het spel door naar de volgende
+  // omgeving (en dus ook andere dieren-obstakels), daarna weer van voren af aan.
+  const BIOME_SCORE_STEP = 700;
+  let currentBiomeIndex = -1; // -1 dwingt de allereerste updateBiome() om altijd te wisselen
+
+  function getObstaclePool(){
+    const idx = currentBiomeIndex >= 0 ? currentBiomeIndex : 0;
+    return ROCKS.concat(BIOMES[idx].animals);
+  }
+  function updateBiome(forceIndex){
+    const idx = forceIndex !== undefined ? forceIndex : Math.floor(score / BIOME_SCORE_STEP) % BIOMES.length;
+    if(idx === currentBiomeIndex) return;
+    currentBiomeIndex = idx;
+    bgEl.src = 'game-assets/' + BIOMES[idx].bg;
+  }
 
   try{ best = parseInt(localStorage.getItem(CAPIRUN_BEST_KEY), 10) || 0; }catch(e){ best = 0; }
 
@@ -8560,6 +8597,7 @@ checkForInviteLink();
     obstacles = [];
     y = 0; vy = 0; onGround = true;
     score = 0; scoreEl.textContent = '00000';
+    updateBiome(0);
     spawnTimer = 0; nextSpawnAt = 900 + Math.random()*400;
     pendingDoubleSpawnAt = null;
     animTimer = 0; animFrame = 0;
@@ -8598,7 +8636,8 @@ checkForInviteLink();
     // obstakels ergens halverwege het scherm liet verschijnen in plaats van
     // vanaf de echte rechterrand.
     stageWidthPx = stage.getBoundingClientRect().width || stageWidthPx;
-    const def = OBSTACLE_FILES[Math.floor(Math.random() * OBSTACLE_FILES.length)];
+    const pool = getObstaclePool();
+    const def = pool[Math.floor(Math.random() * pool.length)];
     const el = document.createElement('img');
     el.src = 'game-assets/' + def.file;
     el.className = 'capirun-obstacle';
@@ -8618,6 +8657,7 @@ checkForInviteLink();
     // score & moeilijkheidsgraad
     score += dt * 100;
     scoreEl.textContent = String(Math.floor(score)).padStart(5,'0');
+    updateBiome();
     const speed = 190 + Math.min(score, 3000) * 0.09; // wordt geleidelijk sneller
 
     // fysica van de sprong
