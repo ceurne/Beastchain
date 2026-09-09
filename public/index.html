@@ -479,11 +479,11 @@
      de langzame parallax-pan (zie updateSkyPan) kan bewegen zonder ooit
      een rand van de afbeelding te laten zien. Hoogte blijft dus altijd
      100% zichtbaar, er wordt nooit verticaal gecropt. */
-  .capirun-sky{ display:block; width:100%; background-repeat:no-repeat; background-size:auto 100%; background-position:0 0; }
+  .capirun-sky{ display:block; width:100%; background-repeat:no-repeat; background-size:auto 100%; background-position:0 0; transition:opacity .4s ease; }
   /* Naadloos herhalende tegel, horizontaal meegeschoven in de game-loop
      (zie updateGroundScroll) zodat het pad onder de capibara meebeweegt --
      dat verkoopt het gevoel van rennen veel beter dan een stilstaand pad. */
-  .capirun-ground{ display:block; width:100%; height:66px; background-repeat:repeat-x; background-size:auto 66px; }
+  .capirun-ground{ display:block; width:100%; height:66px; background-repeat:repeat-x; background-size:auto 66px; transition:opacity .4s ease; }
   .capirun-hud{ position:absolute; top:8px; right:10px; z-index:5; pointer-events:none; }
   .capirun-hud-inner{ background: rgba(250,245,230,.88); border-radius:8px; padding:5px 10px; box-shadow:0 2px 4px rgba(0,0,0,.15); }
   .capirun-score{ font-family:'DM Sans', monospace; font-weight:700; font-size:16px; color: var(--ink); text-align:right; }
@@ -8550,7 +8550,6 @@ checkForInviteLink();
   let rafId = null;
   let groundScrollX = 0; // schuift met dezelfde snelheid als de obstakels mee, voor het rennen-gevoel
   let skyScrollX = 0; // langzame parallax-pan van de achtergrond, kaatst heen en weer zodat 'ie nooit stilstaat en de rand nooit in beeld komt
-  let skyPanDir = -1;
 
   // Stenen zijn overal bruikbaar (neutraal, geen dier), en zijn qua vorm
   // redelijk egaal gevuld -- het botsingsvak mag daarom de volledige
@@ -8599,10 +8598,26 @@ checkForInviteLink();
     const idx = forceIndex !== undefined ? forceIndex : Math.floor(score / BIOME_SCORE_STEP) % BIOMES.length;
     if(idx === currentBiomeIndex) return;
     currentBiomeIndex = idx;
-    skyEl.style.backgroundImage = `url('game-assets/${BIOMES[idx].sky}')`;
-    skyEl.style.aspectRatio = String(BIOMES[idx].skyAspect);
-    skyScrollX = 0; skyPanDir = -1; skyEl.style.backgroundPositionX = '0px';
-    groundEl.style.backgroundImage = `url('game-assets/${BIOMES[idx].ground}')`;
+    const applyBiomeVisuals = () => {
+      skyEl.style.backgroundImage = `url('game-assets/${BIOMES[idx].sky}')`;
+      skyEl.style.aspectRatio = String(BIOMES[idx].skyAspect);
+      skyScrollX = 0; skyEl.style.backgroundPositionX = '0px';
+      groundEl.style.backgroundImage = `url('game-assets/${BIOMES[idx].ground}')`;
+      skyEl.style.opacity = '1';
+      groundEl.style.opacity = '1';
+    };
+    if(forceIndex !== undefined){
+      // Bij het (her)starten van een potje meteen tonen -- daar hoeft niets
+      // zachtjes overgevloeid te worden.
+      applyBiomeVisuals();
+    } else {
+      // Eerst zachtjes wegfaden, dan pas de nieuwe omgeving erop zetten en
+      // weer infaden -- dat verzacht de wissel tussen twee biomes flink
+      // t.o.v. een harde, directe omwisseling.
+      skyEl.style.opacity = '0';
+      groundEl.style.opacity = '0';
+      setTimeout(applyBiomeVisuals, 400);
+    }
   }
 
   try{ best = parseInt(localStorage.getItem(CAPIRUN_BEST_KEY), 10) || 0; }catch(e){ best = 0; }
@@ -8694,14 +8709,19 @@ checkForInviteLink();
     groundScrollX -= speed * dt;
     groundEl.style.backgroundPositionX = groundScrollX + 'px';
 
-    // de achtergrond zelf schuift veel langzamer mee (parallax-diepte-effect).
-    // Begrensd tot precies het "overschot" dat skyAspect ruimte geeft, maar
-    // kaatst bij die grens terug in plaats van te stoppen -- zo blijft hij
-    // continu bewegen en komt de rand van de afbeelding nooit in beeld.
+    // De achtergrond schuift in een vloeiende, ene richting mee (geen heen-en-
+    // weer meer -- dat oogde onrustig). De snelheid wordt zo berekend dat hij
+    // precies aan het einde van een biome (BIOME_SCORE_STEP punten, bij de
+    // hoogst mogelijke speed) net de rand van het "overschot" bereikt, en dus
+    // zo snel mogelijk gaat zonder ooit die rand binnen die tijd te raken.
+    // De kleine sprong terug naar 0 gebeurt precies op het moment dat de
+    // biome zelf ook al wisselt (zie updateBiome), en valt daardoor weg in
+    // de zachte fade-overgang.
     const skyMaxPan = stageWidthPx * 0.3;
-    skyScrollX += skyPanDir * speed * dt * 0.15;
-    if(skyScrollX <= -skyMaxPan){ skyScrollX = -skyMaxPan; skyPanDir = 1; }
-    else if(skyScrollX >= 0){ skyScrollX = 0; skyPanDir = -1; }
+    const biomeDurationS = BIOME_SCORE_STEP / 100; // score loopt altijd met 100/s op
+    const maxPossibleSpeed = 190 + 3000 * 0.09;
+    const skyPanFactor = skyMaxPan / (maxPossibleSpeed * biomeDurationS);
+    skyScrollX = Math.max(skyScrollX - speed * dt * skyPanFactor, -skyMaxPan);
     skyEl.style.backgroundPositionX = skyScrollX + 'px';
 
     // fysica van de sprong
