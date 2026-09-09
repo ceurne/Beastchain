@@ -473,17 +473,31 @@
      gewoon ONDER, niet overlappend; de kleur van die strook wisselt licht
      mee per biome zodat hij niet als los, neutraal element oogt. Samen
      bepalen ze de (variabele) hoogte van het speelveld. */
-  /* De container is expres iets smaller (hoger, relatief) dan de eigen
-     beeldverhouding van de afbeelding, zodat achtergrond breder uitrendert
-     dan de zichtbare breedte -- dat overschot is precies de ruimte waarin
-     de langzame parallax-pan (zie updateSkyPan) kan bewegen zonder ooit
-     een rand van de afbeelding te laten zien. Hoogte blijft dus altijd
-     100% zichtbaar, er wordt nooit verticaal gecropt. */
-  .capirun-sky{ display:block; width:100%; background-repeat:no-repeat; background-size:auto 100%; background-position:0 0; transition:opacity .4s ease; }
+  /* De wrap is expres iets smaller (hoger, relatief) dan de eigen
+     beeldverhouding van de afbeelding, zodat de achtergrond breder
+     uitrendert dan de zichtbare breedte -- dat overschot is precies de
+     ruimte waarin de langzame parallax-pan (zie loop()) kan bewegen zonder
+     ooit een rand van de afbeelding te laten zien. Hoogte blijft dus altijd
+     100% zichtbaar, er wordt nooit verticaal gecropt.
+     Twee lagen (1 en 2) wisselen van rol bij elke biome-overgang: de
+     "volgende" komt van rechts aanschuiven en duwt de huidige naar links
+     weg (zie updateBiome), in plaats van een fade. */
+  .capirun-sky-wrap{ position:relative; width:100%; overflow:hidden; }
+  .capirun-sky-layer{
+    position:absolute; inset:0; width:100%; height:100%;
+    background-repeat:no-repeat; background-size:auto 100%; background-position:0 0;
+    transition:transform .5s ease;
+  }
   /* Naadloos herhalende tegel, horizontaal meegeschoven in de game-loop
-     (zie updateGroundScroll) zodat het pad onder de capibara meebeweegt --
-     dat verkoopt het gevoel van rennen veel beter dan een stilstaand pad. */
-  .capirun-ground{ display:block; width:100%; height:66px; background-repeat:repeat-x; background-size:auto 66px; transition:opacity .4s ease; }
+     zodat het pad onder de capibara meebeweegt -- dat verkoopt het gevoel
+     van rennen veel beter dan een stilstaand pad. Ook hier twee lagen die
+     van rol wisselen voor de schuif-overgang tussen biomes. */
+  .capirun-ground-wrap{ position:relative; width:100%; height:66px; overflow:hidden; }
+  .capirun-ground-layer{
+    position:absolute; inset:0; width:100%; height:100%;
+    background-repeat:repeat-x; background-size:auto 66px;
+    transition:transform .5s ease;
+  }
   .capirun-hud{ position:absolute; top:8px; right:10px; z-index:5; pointer-events:none; }
   .capirun-hud-inner{ background: rgba(250,245,230,.88); border-radius:8px; padding:5px 10px; box-shadow:0 2px 4px rgba(0,0,0,.15); }
   .capirun-score{ font-family:'DM Sans', monospace; font-weight:700; font-size:16px; color: var(--ink); text-align:right; }
@@ -1009,8 +1023,14 @@
     <div class="capirun-card">
       <button class="lightbox-close" id="capiRunCloseBtn" style="position:absolute;top:10px;right:10px;z-index:20;">×</button>
       <div class="capirun-stage" id="capiRunStage">
-        <div class="capirun-sky" id="capiRunSky" style="background-image:url('game-assets/capirun_sky_meadow.jpg'); aspect-ratio: 462/246;"></div>
-        <div class="capirun-ground" id="capiRunGround" style="background-image:url('game-assets/capirun_ground_meadow.jpg');"></div>
+        <div class="capirun-sky-wrap" id="capiRunSkyWrap" style="aspect-ratio: 462/246;">
+          <div class="capirun-sky-layer" id="capiRunSky1" style="background-image:url('game-assets/capirun_sky_meadow.jpg'); transform:translateX(0%);"></div>
+          <div class="capirun-sky-layer" id="capiRunSky2" style="transform:translateX(100%);"></div>
+        </div>
+        <div class="capirun-ground-wrap" id="capiRunGroundWrap">
+          <div class="capirun-ground-layer" id="capiRunGround1" style="background-image:url('game-assets/capirun_ground_meadow.jpg'); transform:translateX(0%);"></div>
+          <div class="capirun-ground-layer" id="capiRunGround2" style="transform:translateX(100%);"></div>
+        </div>
         <div class="capirun-hud"><div class="capirun-hud-inner">
           <div class="capirun-score" id="capiRunScore">0</div>
           <div class="capirun-best">TOPSCORE <span id="capiRunBest">0</span></div>
@@ -8521,8 +8541,11 @@ checkForInviteLink();
   const modal = document.getElementById('capiRunModal');
   const openBtn = document.getElementById('capiRunOpenBtn');
   const closeBtn = document.getElementById('capiRunCloseBtn');
-  const skyEl = document.getElementById('capiRunSky');
-  const groundEl = document.getElementById('capiRunGround');
+  const skyWrapEl = document.getElementById('capiRunSkyWrap');
+  let skyElCurrent = document.getElementById('capiRunSky1');
+  let skyElNext = document.getElementById('capiRunSky2');
+  let groundElCurrent = document.getElementById('capiRunGround1');
+  let groundElNext = document.getElementById('capiRunGround2');
 
   const GROUND_Y = 34; // px vanaf de onderkant van het speelveld
   const GRAVITY = 1250; // px/s^2 -- iets zachter, voor een vergevingsgezinder sprongboog
@@ -8598,26 +8621,48 @@ checkForInviteLink();
     const idx = forceIndex !== undefined ? forceIndex : Math.floor(score / BIOME_SCORE_STEP) % BIOMES.length;
     if(idx === currentBiomeIndex) return;
     currentBiomeIndex = idx;
-    const applyBiomeVisuals = () => {
-      skyEl.style.backgroundImage = `url('game-assets/${BIOMES[idx].sky}')`;
-      skyEl.style.aspectRatio = String(BIOMES[idx].skyAspect);
-      skyScrollX = 0; skyEl.style.backgroundPositionX = '0px';
-      groundEl.style.backgroundImage = `url('game-assets/${BIOMES[idx].ground}')`;
-      skyEl.style.opacity = '1';
-      groundEl.style.opacity = '1';
-    };
+    const biome = BIOMES[idx];
+
     if(forceIndex !== undefined){
       // Bij het (her)starten van een potje meteen tonen -- daar hoeft niets
-      // zachtjes overgevloeid te worden.
-      applyBiomeVisuals();
-    } else {
-      // Eerst zachtjes wegfaden, dan pas de nieuwe omgeving erop zetten en
-      // weer infaden -- dat verzacht de wissel tussen twee biomes flink
-      // t.o.v. een harde, directe omwisseling.
-      skyEl.style.opacity = '0';
-      groundEl.style.opacity = '0';
-      setTimeout(applyBiomeVisuals, 400);
+      // te schuiven, dat zou er bij het openen van het spel juist raar uitzien.
+      skyElCurrent.style.backgroundImage = `url('game-assets/${biome.sky}')`;
+      skyElCurrent.style.backgroundPositionX = '0px';
+      skyElCurrent.style.transform = 'translateX(0%)';
+      skyElNext.style.transform = 'translateX(100%)';
+      skyWrapEl.style.aspectRatio = String(biome.skyAspect);
+      skyScrollX = 0;
+      groundElCurrent.style.backgroundImage = `url('game-assets/${biome.ground}')`;
+      groundElCurrent.style.backgroundPositionX = '0px';
+      groundElCurrent.style.transform = 'translateX(0%)';
+      groundElNext.style.transform = 'translateX(100%)';
+      return;
     }
+
+    // Schuif-overgang: de "volgende" laag staat al klaar net buiten beeld
+    // rechts, krijgt meteen de nieuwe omgeving, en schuift dan samen met de
+    // huidige laag (die naar links verdwijnt) naar binnen -- dat sluit aan
+    // bij de rest van het spel, waar alles al naar links beweegt.
+    skyElNext.style.backgroundImage = `url('game-assets/${biome.sky}')`;
+    skyElNext.style.backgroundPositionX = '0px';
+    skyWrapEl.style.aspectRatio = String(biome.skyAspect);
+    groundElNext.style.backgroundImage = `url('game-assets/${biome.ground}')`;
+    groundElNext.style.backgroundPositionX = '0px';
+
+    skyElCurrent.style.transform = 'translateX(-100%)';
+    skyElNext.style.transform = 'translateX(0%)';
+    groundElCurrent.style.transform = 'translateX(-100%)';
+    groundElNext.style.transform = 'translateX(0%)';
+
+    setTimeout(() => {
+      // Rolwissel: de laag die net binnenschoof is nu de actieve; de oude
+      // gaat weer klaarstaan rechts buiten beeld voor de volgende keer.
+      [skyElCurrent, skyElNext] = [skyElNext, skyElCurrent];
+      skyElNext.style.transform = 'translateX(100%)';
+      skyScrollX = 0;
+      [groundElCurrent, groundElNext] = [groundElNext, groundElCurrent];
+      groundElNext.style.transform = 'translateX(100%)';
+    }, 500);
   }
 
   try{ best = parseInt(localStorage.getItem(CAPIRUN_BEST_KEY), 10) || 0; }catch(e){ best = 0; }
@@ -8639,7 +8684,7 @@ checkForInviteLink();
     obstacles = [];
     y = 0; vy = 0; onGround = true;
     score = 0; scoreEl.textContent = '00000';
-    groundScrollX = 0; groundEl.style.backgroundPositionX = '0px';
+    groundScrollX = 0;
     updateBiome(0);
     spawnTimer = 0; nextSpawnAt = 900 + Math.random()*400;
     pendingDoubleSpawnAt = null;
@@ -8707,7 +8752,8 @@ checkForInviteLink();
     // obstakels -- dat verkoopt het rennen veel overtuigender dan een
     // stilstaand pad
     groundScrollX -= speed * dt;
-    groundEl.style.backgroundPositionX = groundScrollX + 'px';
+    groundElCurrent.style.backgroundPositionX = groundScrollX + 'px';
+    groundElNext.style.backgroundPositionX = groundScrollX + 'px';
 
     // De achtergrond schuift in een vloeiende, ene richting mee (geen heen-en-
     // weer meer -- dat oogde onrustig). De snelheid wordt zo berekend dat hij
@@ -8722,7 +8768,8 @@ checkForInviteLink();
     const maxPossibleSpeed = 190 + 3000 * 0.09;
     const skyPanFactor = skyMaxPan / (maxPossibleSpeed * biomeDurationS);
     skyScrollX = Math.max(skyScrollX - speed * dt * skyPanFactor, -skyMaxPan);
-    skyEl.style.backgroundPositionX = skyScrollX + 'px';
+    skyElCurrent.style.backgroundPositionX = skyScrollX + 'px';
+    skyElNext.style.backgroundPositionX = skyScrollX + 'px';
 
     // fysica van de sprong
     if(!onGround){
