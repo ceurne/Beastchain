@@ -486,7 +486,7 @@
   .capirun-sky-layer{
     position:absolute; inset:0; width:100%; height:100%;
     background-repeat:no-repeat; background-size:auto 100%; background-position:0 0;
-    transition:transform .5s ease;
+    transition:transform .5s linear;
   }
   /* Naadloos herhalende tegel, horizontaal meegeschoven in de game-loop
      zodat het pad onder de capibara meebeweegt -- dat verkoopt het gevoel
@@ -496,7 +496,7 @@
   .capirun-ground-layer{
     position:absolute; inset:0; width:100%; height:100%;
     background-repeat:repeat-x; background-size:auto 66px;
-    transition:transform .5s ease;
+    transition:transform .5s linear;
   }
   .capirun-hud{ position:absolute; top:8px; right:10px; z-index:5; pointer-events:none; }
   .capirun-hud-inner{ background: rgba(250,245,230,.88); border-radius:8px; padding:5px 10px; box-shadow:0 2px 4px rgba(0,0,0,.15); }
@@ -8617,6 +8617,16 @@ checkForInviteLink();
     const idx = currentBiomeIndex >= 0 ? currentBiomeIndex : 0;
     return ROCKS.concat(BIOMES[idx].animals);
   }
+  // Zet een transform direct neer, zonder de CSS-transitie te laten
+  // meeanimeren -- nodig voor het onzichtbaar terugzetten van een laag naar
+  // zijn startpositie. Zonder dit gleed die reset zelf ook (half)zichtbaar
+  // over het scherm mee, wat als een hapering in de overgang aanvoelde.
+  function instantTransform(el, translateXPercent){
+    el.style.transition = 'none';
+    el.style.transform = `translateX(${translateXPercent}%)`;
+    void el.offsetWidth; // forceer een reflow zodat dit echt zonder animatie wordt toegepast
+    el.style.transition = '';
+  }
   function updateBiome(forceIndex){
     const idx = forceIndex !== undefined ? forceIndex : Math.floor(score / BIOME_SCORE_STEP) % BIOMES.length;
     if(idx === currentBiomeIndex) return;
@@ -8628,14 +8638,14 @@ checkForInviteLink();
       // te schuiven, dat zou er bij het openen van het spel juist raar uitzien.
       skyElCurrent.style.backgroundImage = `url('game-assets/${biome.sky}')`;
       skyElCurrent.style.backgroundPositionX = '0px';
-      skyElCurrent.style.transform = 'translateX(0%)';
-      skyElNext.style.transform = 'translateX(100%)';
+      instantTransform(skyElCurrent, 0);
+      instantTransform(skyElNext, 100);
       skyWrapEl.style.aspectRatio = String(biome.skyAspect);
       skyScrollX = 0;
       groundElCurrent.style.backgroundImage = `url('game-assets/${biome.ground}')`;
       groundElCurrent.style.backgroundPositionX = '0px';
-      groundElCurrent.style.transform = 'translateX(0%)';
-      groundElNext.style.transform = 'translateX(100%)';
+      instantTransform(groundElCurrent, 0);
+      instantTransform(groundElNext, 100);
       return;
     }
 
@@ -8656,12 +8666,13 @@ checkForInviteLink();
 
     setTimeout(() => {
       // Rolwissel: de laag die net binnenschoof is nu de actieve; de oude
-      // gaat weer klaarstaan rechts buiten beeld voor de volgende keer.
+      // gaat weer klaarstaan rechts buiten beeld voor de volgende keer --
+      // instant, zodat dit teruszetten zelf niet nog eens zichtbaar meeschuift.
       [skyElCurrent, skyElNext] = [skyElNext, skyElCurrent];
-      skyElNext.style.transform = 'translateX(100%)';
+      instantTransform(skyElNext, 100);
       skyScrollX = 0;
       [groundElCurrent, groundElNext] = [groundElNext, groundElCurrent];
-      groundElNext.style.transform = 'translateX(100%)';
+      instantTransform(groundElNext, 100);
     }, 500);
   }
 
