@@ -8576,7 +8576,13 @@ checkForInviteLink();
   let stageWidthPx = 360;
   let rafId = null;
   let groundScrollX = 0; // totale afgelegde afstand (px) -- bepaalt de celposities van de doorlopende baan, zie updateGroundCells()
-  let skyScrollX = 0; // langzame parallax-pan binnen een biome, zodat de lucht nooit stilstaat
+  // Elke luchtlaag heeft zijn EIGEN pan-waarde (in plaats van 1 gedeelde) --
+  // anders zou het terugzetten naar 0 voor een nieuwe biome de zichtbare
+  // laag zelf laten "terugschokken" op het moment dat de overvloei net klaar
+  // is. Nu wordt alleen de nog onzichtbare "volgende" laag gereset, terwijl
+  // de zichtbare laag gewoon zijn eigen pan afmaakt.
+  let skyPanCurrent = 0;
+  let skyPanNext = 0;
   let groundCells = []; // {el, biome, startX, endX|null}, van oud (links) naar nieuw (rechts)
   const groundCellPool = []; // herbruikbare <div>'s, voorkomt DOM-churn bij elke biome-wissel
 
@@ -8699,7 +8705,8 @@ checkForInviteLink();
       skyElCurrent.style.backgroundPositionX = '0px';
       instantOpacity(skyElCurrent, 1);
       instantOpacity(skyElNext, 0);
-      skyScrollX = 0;
+      skyPanCurrent = 0;
+      skyPanNext = 0;
       return;
     }
 
@@ -8718,16 +8725,25 @@ checkForInviteLink();
     // overgang.
     skyElNext.style.backgroundImage = `url('game-assets/${biome.sky}')`;
     skyElNext.style.backgroundPositionX = '0px';
+    // De inkomende laag begint zijn EIGEN pan-cyclus vanaf 0 -- maar alleen
+    // als hij nu ook echt onzichtbaar is. Zou deze functie ooit worden
+    // aangeroepen terwijl een vorige overvloei nog bezig is (skyElNext dus
+    // al deels zichtbaar), dan zou een reset hier zelf een zichtbaar
+    // schokje veroorzaken -- in dat (zeldzame) geval laten we zijn pan
+    // gewoon lopen zoals hij was.
+    if(parseFloat(getComputedStyle(skyElNext).opacity) < 0.02) skyPanNext = 0;
     skyElNext.style.opacity = '1';
     skyElCurrent.style.opacity = '0';
 
     biomeTransitionTimer = setTimeout(() => {
       biomeTransitionTimer = null;
       // Rolwissel: de laag die net is ingevloeid is nu de actieve; de oude
-      // wordt onzichtbaar klaargezet voor de volgende keer.
+      // wordt onzichtbaar klaargezet voor de volgende keer. De pan-waarden
+      // wisselen gewoon mee -- niets wordt hier teruggezet, dus de net
+      // zichtbaar geworden laag loopt door zonder schokje.
       [skyElCurrent, skyElNext] = [skyElNext, skyElCurrent];
+      [skyPanCurrent, skyPanNext] = [skyPanNext, skyPanCurrent];
       instantOpacity(skyElNext, 0);
-      skyScrollX = 0;
     }, 1150);
   }
 
@@ -8834,9 +8850,11 @@ checkForInviteLink();
     const biomeDurationS = BIOME_SCORE_STEP / 100; // score loopt altijd met 100/s op
     const maxPossibleSpeed = 190 + 3000 * 0.09;
     const skyPanFactor = skyMaxPan / (maxPossibleSpeed * biomeDurationS);
-    skyScrollX = Math.max(skyScrollX - speed * dt * skyPanFactor, -skyMaxPan);
-    skyElCurrent.style.backgroundPositionX = skyScrollX + 'px';
-    skyElNext.style.backgroundPositionX = skyScrollX + 'px';
+    const skyPanStep = speed * dt * skyPanFactor;
+    skyPanCurrent = Math.max(skyPanCurrent - skyPanStep, -skyMaxPan);
+    skyPanNext = Math.max(skyPanNext - skyPanStep, -skyMaxPan);
+    skyElCurrent.style.backgroundPositionX = skyPanCurrent + 'px';
+    skyElNext.style.backgroundPositionX = skyPanNext + 'px';
 
     // fysica van de sprong
     if(!onGround){
