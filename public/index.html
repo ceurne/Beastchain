@@ -473,30 +473,32 @@
      gewoon ONDER, niet overlappend; de kleur van die strook wisselt licht
      mee per biome zodat hij niet als los, neutraal element oogt. Samen
      bepalen ze de (variabele) hoogte van het speelveld. */
-  /* De wrap is expres iets smaller (hoger, relatief) dan de eigen
-     beeldverhouding van de afbeelding, zodat de achtergrond breder
-     uitrendert dan de zichtbare breedte -- dat overschot is precies de
-     ruimte waarin de langzame parallax-pan (zie loop()) kan bewegen zonder
-     ooit een rand van de afbeelding te laten zien. Hoogte blijft dus altijd
-     100% zichtbaar, er wordt nooit verticaal gecropt.
-     Twee lagen (1 en 2) wisselen van rol bij elke biome-overgang: de
-     "volgende" komt van rechts aanschuiven en duwt de huidige naar links
-     weg (zie updateBiome), in plaats van een fade. */
+  /* De wrap heeft een vaste beeldverhouding (zie SKY_ASPECT in JS) die
+     bewust iets smaller (hoger, relatief) is dan de eigen beeldverhouding
+     van de meeste afbeeldingen, zodat de achtergrond breder uitrendert dan
+     de zichtbare breedte -- dat overschot is precies de ruimte waarin de
+     langzame parallax-pan (zie loop()) kan bewegen zonder ooit een rand van
+     de afbeelding te laten zien. De verhouding staat vast (wisselt niet per
+     biome) zodat het speelveld nooit van hoogte springt bij een overgang.
+     Twee lagen (1 en 2) wisselen van rol bij elke biome-overgang via een
+     zachte overvloei (opacity), niet via een schuif -- dat oogt rustiger en
+     kan nooit meer "te snel" aanvoelen t.o.v. de rest van het spel. */
   .capirun-sky-wrap{ position:relative; width:100%; overflow:hidden; }
   .capirun-sky-layer{
     position:absolute; inset:0; width:100%; height:100%;
     background-repeat:no-repeat; background-size:auto 100%; background-position:0 0;
-    transition:transform .5s linear;
+    transition:opacity 1.1s ease;
   }
-  /* Naadloos herhalende tegel, horizontaal meegeschoven in de game-loop
-     zodat het pad onder de capibara meebeweegt -- dat verkoopt het gevoel
-     van rennen veel beter dan een stilstaand pad. Ook hier twee lagen die
-     van rol wisselen voor de schuif-overgang tussen biomes. */
+  /* Het pad is nu een écht doorlopende baan: losse stukken (cellen), elk met
+     de achtergrond van de biome die op dat moment "actueel" was, staan achter
+     elkaar en schuiven samen met de obstakels mee (zie updateGroundCells in
+     de game-loop). Er is dus geen apart wisselmoment meer voor de grond --
+     de omgeving verandert simpelweg omdat er verderop een ander stuk pad
+     aankomt, precies zoals in een echt doorlopende wereld. */
   .capirun-ground-wrap{ position:relative; width:100%; height:66px; overflow:hidden; }
-  .capirun-ground-layer{
-    position:absolute; inset:0; width:100%; height:100%;
+  .capirun-ground-cell{
+    position:absolute; top:0; bottom:0;
     background-repeat:repeat-x; background-size:auto 66px;
-    transition:transform .5s linear;
   }
   .capirun-hud{ position:absolute; top:8px; right:10px; z-index:5; pointer-events:none; }
   .capirun-hud-inner{ background: rgba(250,245,230,.88); border-radius:8px; padding:5px 10px; box-shadow:0 2px 4px rgba(0,0,0,.15); }
@@ -1023,14 +1025,11 @@
     <div class="capirun-card">
       <button class="lightbox-close" id="capiRunCloseBtn" style="position:absolute;top:10px;right:10px;z-index:20;">×</button>
       <div class="capirun-stage" id="capiRunStage">
-        <div class="capirun-sky-wrap" id="capiRunSkyWrap" style="aspect-ratio: 462/246;">
-          <div class="capirun-sky-layer" id="capiRunSky1" style="background-image:url('game-assets/capirun_sky_meadow.jpg'); transform:translateX(0%);"></div>
-          <div class="capirun-sky-layer" id="capiRunSky2" style="transform:translateX(100%);"></div>
+        <div class="capirun-sky-wrap" id="capiRunSkyWrap">
+          <div class="capirun-sky-layer" id="capiRunSky1" style="background-image:url('game-assets/capirun_sky_meadow.jpg'); opacity:1;"></div>
+          <div class="capirun-sky-layer" id="capiRunSky2" style="opacity:0;"></div>
         </div>
-        <div class="capirun-ground-wrap" id="capiRunGroundWrap">
-          <div class="capirun-ground-layer" id="capiRunGround1" style="background-image:url('game-assets/capirun_ground_meadow.jpg'); transform:translateX(0%);"></div>
-          <div class="capirun-ground-layer" id="capiRunGround2" style="transform:translateX(100%);"></div>
-        </div>
+        <div class="capirun-ground-wrap" id="capiRunGroundWrap"></div>
         <div class="capirun-hud"><div class="capirun-hud-inner">
           <div class="capirun-score" id="capiRunScore">0</div>
           <div class="capirun-best">TOPSCORE <span id="capiRunBest">0</span></div>
@@ -8544,8 +8543,13 @@ checkForInviteLink();
   const skyWrapEl = document.getElementById('capiRunSkyWrap');
   let skyElCurrent = document.getElementById('capiRunSky1');
   let skyElNext = document.getElementById('capiRunSky2');
-  let groundElCurrent = document.getElementById('capiRunGround1');
-  let groundElNext = document.getElementById('capiRunGround2');
+  const groundWrapEl = document.getElementById('capiRunGroundWrap');
+  // Vaste beeldverhouding voor de lucht (wisselt niet meer per biome, zie
+  // .capirun-sky-wrap) zodat het speelveld nooit van hoogte springt bij een
+  // overgang. 30% breder dan de eigen verhouding van de meeste
+  // achtergronden -- dat overschot is de ruimte voor de langzame pan.
+  const SKY_ASPECT = (1600/700)/1.3;
+  skyWrapEl.style.aspectRatio = String(SKY_ASPECT);
 
   const GROUND_Y = 34; // px vanaf de onderkant van het speelveld
   const GRAVITY = 1250; // px/s^2 -- iets zachter, voor een vergevingsgezinder sprongboog
@@ -8571,8 +8575,10 @@ checkForInviteLink();
   let score = 0, best = 0;
   let stageWidthPx = 360;
   let rafId = null;
-  let groundScrollX = 0; // schuift met dezelfde snelheid als de obstakels mee, voor het rennen-gevoel
-  let skyScrollX = 0; // langzame parallax-pan van de achtergrond, kaatst heen en weer zodat 'ie nooit stilstaat en de rand nooit in beeld komt
+  let groundScrollX = 0; // totale afgelegde afstand (px) -- bepaalt de celposities van de doorlopende baan, zie updateGroundCells()
+  let skyScrollX = 0; // langzame parallax-pan binnen een biome, zodat de lucht nooit stilstaat
+  let groundCells = []; // {el, biome, startX, endX|null}, van oud (links) naar nieuw (rechts)
+  const groundCellPool = []; // herbruikbare <div>'s, voorkomt DOM-churn bij elke biome-wissel
 
   // Stenen zijn overal bruikbaar (neutraal, geen dier), en zijn qua vorm
   // redelijk egaal gevuld -- het botsingsvak mag daarom de volledige
@@ -8586,25 +8592,22 @@ checkForInviteLink();
   // meewisselen naarmate de score oploopt. hitboxW blijft ruim onder de volle
   // breedte -- dat is eerlijker dan botsen met de (deels doorzichtige) rand
   // van elk dierplaatje.
-  // skyAspect = de eigen beeldverhouding van de afbeelding gedeeld door 1.3
-  // -- dat "overschot" van 30% breedte is precies de ruimte waarin de
-  // langzame parallax-pan straks heen en weer kan (zie updateSkyPan/loop).
   const BIOMES = [
-    { name:'meadow', sky:'capirun_sky_meadow.jpg', skyAspect:(600/246)/1.3, ground:'capirun_ground_meadow.jpg', animals:[
+    { name:'meadow', sky:'capirun_sky_meadow.jpg', ground:'capirun_ground_meadow.jpg', animals:[
       { file:'capirun_obstacle_turtle.png', w:45, h:22, hitboxW:38 }
     ]},
-    { name:'forest', sky:'capirun_sky_forest.jpg', skyAspect:(1600/700)/1.3, ground:'capirun_ground_forest.jpg', animals:[
+    { name:'forest', sky:'capirun_sky_forest.jpg', ground:'capirun_ground_forest.jpg', animals:[
       { file:'capirun_obstacle_wolf1.png', w:62, h:31, hitboxW:52 },
       { file:'capirun_obstacle_wolf2.png', w:48, h:35, hitboxW:39 }
     ]},
-    { name:'desert', sky:'capirun_sky_desert.jpg', skyAspect:(1600/700)/1.3, ground:'capirun_ground_desert.jpg', animals:[
+    { name:'desert', sky:'capirun_sky_desert.jpg', ground:'capirun_ground_desert.jpg', animals:[
       { file:'capirun_obstacle_snake.png', w:42, h:41, hitboxW:34 }
     ]},
-    { name:'snow', sky:'capirun_sky_snow.jpg', skyAspect:(1600/700)/1.3, ground:'capirun_ground_snow.jpg', animals:[
+    { name:'snow', sky:'capirun_sky_snow.jpg', ground:'capirun_ground_snow.jpg', animals:[
       { file:'capirun_obstacle_bear_walk.png', w:62, h:27, hitboxW:53 },
       { file:'capirun_obstacle_bear_sit.png', w:48, h:46, hitboxW:39 }
     ]},
-    { name:'rural', sky:'capirun_sky_rural.jpg', skyAspect:(1600/700)/1.3, ground:'capirun_ground_rural.jpg', animals:[
+    { name:'rural', sky:'capirun_sky_rural.jpg', ground:'capirun_ground_rural.jpg', animals:[
       { file:'capirun_obstacle_turtle.png', w:45, h:22, hitboxW:38 }
     ]}
   ];
@@ -8618,83 +8621,114 @@ checkForInviteLink();
     const idx = currentBiomeIndex >= 0 ? currentBiomeIndex : 0;
     return ROCKS.concat(BIOMES[idx].animals);
   }
-  // Zet een transform direct neer, zonder de CSS-transitie te laten
-  // meeanimeren -- nodig voor het onzichtbaar terugzetten van een laag naar
-  // zijn startpositie. Zonder dit gleed die reset zelf ook (half)zichtbaar
-  // over het scherm mee, wat als een hapering in de overgang aanvoelde.
-  function instantTransform(el, translateXPercent){
+  // Zet een opacity direct neer, zonder de CSS-transitie te laten meeanimeren
+  // -- nodig voor het onzichtbaar klaarzetten van een laag voor hergebruik.
+  function instantOpacity(el, value){
     el.style.transition = 'none';
-    el.style.transform = `translateX(${translateXPercent}%)`;
+    el.style.opacity = String(value);
     void el.offsetWidth; // forceer een reflow zodat dit echt zonder animatie wordt toegepast
     el.style.transition = '';
   }
-  function updateBiome(forceIndex, currentSpeed){
+  function getGroundCellEl(){
+    let el = groundCellPool.pop();
+    if(!el){
+      el = document.createElement('div');
+      el.className = 'capirun-ground-cell';
+      groundWrapEl.appendChild(el);
+    } else {
+      el.style.display = ''; // weer zichtbaar maken, zie poolGroundCellEl()
+    }
+    return el;
+  }
+  // Een niet meer gebruikte cel gaat terug in de pool voor hergebruik, maar
+  // moet ondertussen verborgen worden -- anders blijft hij als een spookbeeld
+  // op zijn laatst bekende (inmiddels foute) positie in beeld staan totdat
+  // hij weer opgevraagd wordt. Dit veroorzaakte een los, stilstaand stukje
+  // pad na "opnieuw spelen" wanneer er meer cellen vrijkwamen dan er in
+  // dezelfde beurt weer hergebruikt werden.
+  function poolGroundCellEl(el){
+    el.style.display = 'none';
+    groundCellPool.push(el);
+  }
+  // Plakt een nieuw stuk pad direct aan het vorige vast (of, bij de start van
+  // een potje, op startX 0) -- er is geen vaste lengte nodig, elke cel groeit
+  // in updateGroundCells() gewoon door totdat de volgende biome begint. Zo
+  // blijft de grond altijd één ononderbroken baan, zonder wisselmoment.
+  function addGroundCell(biomeIndex, startX){
+    if(groundCells.length) groundCells[groundCells.length - 1].endX = startX;
+    const el = getGroundCellEl();
+    el.style.backgroundImage = `url('game-assets/${BIOMES[biomeIndex].ground}')`;
+    groundCells.push({ el, biome: biomeIndex, startX, endX: null });
+  }
+  // Positioneert elke actieve pad-cel t.o.v. de huidige scrollpositie en
+  // ruimt cellen op die volledig van het scherm zijn verdwenen.
+  function updateGroundCells(){
+    const buffer = 60;
+    for(const cell of groundCells){
+      const right = cell.endX !== null ? cell.endX : (groundScrollX + stageWidthPx + buffer);
+      cell.el.style.left = (cell.startX - groundScrollX) + 'px';
+      cell.el.style.width = Math.max(1, right - cell.startX) + 'px';
+    }
+    while(groundCells.length > 1 && groundCells[0].endX !== null && groundCells[0].endX < groundScrollX - buffer){
+      poolGroundCellEl(groundCells.shift().el);
+    }
+  }
+  function updateBiome(forceIndex){
     const idx = forceIndex !== undefined ? forceIndex : Math.floor(score / BIOME_SCORE_STEP) % BIOMES.length;
     if(idx === currentBiomeIndex) return;
     currentBiomeIndex = idx;
     const biome = BIOMES[idx];
 
-    // Een eerder geplande rolwissel (zie setTimeout hieronder) mag nooit later
-    // nog afgaan -- anders wisselt hij de lagen om terwijl er inmiddels alweer
-    // een nieuw potje of een nieuwe overgang bezig is, waardoor de zichtbare
-    // achtergrondlaag per ongeluk onzichtbaar wordt weggezet. Dit was de oorzaak
-    // van de verdwenen achtergrond bij "opnieuw spelen".
+    // Een eerder geplande rolwissel van de lucht-overvloei (zie setTimeout
+    // hieronder) mag nooit later nog afgaan -- anders wisselt hij de lagen om
+    // terwijl er inmiddels alweer een nieuw potje of een nieuwe overgang bezig
+    // is, waardoor de zichtbare achtergrondlaag per ongeluk onzichtbaar wordt
+    // weggezet. Dit was de oorzaak van de verdwenen achtergrond bij "opnieuw
+    // spelen".
     if(biomeTransitionTimer){ clearTimeout(biomeTransitionTimer); biomeTransitionTimer = null; }
 
     if(forceIndex !== undefined){
       // Bij het (her)starten van een potje meteen tonen -- daar hoeft niets
-      // te schuiven, dat zou er bij het openen van het spel juist raar uitzien.
+      // te overvloeien, dat zou er bij het openen van het spel juist raar
+      // uitzien. Ook alle oude pad-cellen van een eventueel vorig potje
+      // opruimen, anders blijven die op hun oude (verre) positie staan.
+      groundCells.forEach(c => poolGroundCellEl(c.el));
+      groundCells = [];
+      addGroundCell(idx, groundScrollX);
       skyElCurrent.style.backgroundImage = `url('game-assets/${biome.sky}')`;
       skyElCurrent.style.backgroundPositionX = '0px';
-      instantTransform(skyElCurrent, 0);
-      instantTransform(skyElNext, 100);
-      skyWrapEl.style.aspectRatio = String(biome.skyAspect);
+      instantOpacity(skyElCurrent, 1);
+      instantOpacity(skyElNext, 0);
       skyScrollX = 0;
-      groundElCurrent.style.backgroundImage = `url('game-assets/${biome.ground}')`;
-      groundElCurrent.style.backgroundPositionX = '0px';
-      instantTransform(groundElCurrent, 0);
-      instantTransform(groundElNext, 100);
       return;
     }
 
-    // Schuif-overgang: de "volgende" laag staat al klaar net buiten beeld
-    // rechts, krijgt meteen de nieuwe omgeving, en schuift dan samen met de
-    // huidige laag (die naar links verdwijnt) naar binnen -- dat sluit aan
-    // bij de rest van het spel, waar alles al naar links beweegt.
-    // De duur wordt zo berekend dat de schuifsnelheid EXACT gelijk is aan de
-    // snelheid waarmee het pad en de obstakels op dat moment al bewegen --
-    // zonder dat zou de wissel als een aparte, veel te snelle sprong voelen
-    // t.o.v. de rest van het spel.
-    const slideSpeed = currentSpeed || 190;
-    const slideDurationMs = (stageWidthPx / slideSpeed) * 1000;
-    const durationStr = slideDurationMs + 'ms';
-    skyElCurrent.style.transitionDuration = durationStr;
-    skyElNext.style.transitionDuration = durationStr;
-    groundElCurrent.style.transitionDuration = durationStr;
-    groundElNext.style.transitionDuration = durationStr;
+    // Grond: gewoon een nieuw stuk pad aanplakken aan het huidige einde --
+    // dat schuift al mee met de rest, er is niets aparts te animeren.
+    addGroundCell(idx, groundScrollX);
 
+    // Lucht: een zachte overvloei naar de nieuwe omgeving. Dat is inherent
+    // een rustige overgang (in tegenstelling tot een schuif) en kan dus niet
+    // meer "te snel/heftig" aanvoelen, ongeacht de spelsnelheid.
+    // skyElNext staat hier altijd al op opacity 0 (dat wordt gegarandeerd door
+    // de rolwissel hieronder) -- dus NIET nog eens instant op 0 forceren: als
+    // deze functie ooit zou worden aangeroepen terwijl een vorige overvloei
+    // nog bezig is, zou dat de net ingevloeide laag zichtbaar terugzetten
+    // naar onzichtbaar, een korte "flits naar leeg" in plaats van een vloeiende
+    // overgang.
     skyElNext.style.backgroundImage = `url('game-assets/${biome.sky}')`;
     skyElNext.style.backgroundPositionX = '0px';
-    skyWrapEl.style.aspectRatio = String(biome.skyAspect);
-    groundElNext.style.backgroundImage = `url('game-assets/${biome.ground}')`;
-    groundElNext.style.backgroundPositionX = '0px';
-
-    skyElCurrent.style.transform = 'translateX(-100%)';
-    skyElNext.style.transform = 'translateX(0%)';
-    groundElCurrent.style.transform = 'translateX(-100%)';
-    groundElNext.style.transform = 'translateX(0%)';
+    skyElNext.style.opacity = '1';
+    skyElCurrent.style.opacity = '0';
 
     biomeTransitionTimer = setTimeout(() => {
       biomeTransitionTimer = null;
-      // Rolwissel: de laag die net binnenschoof is nu de actieve; de oude
-      // gaat weer klaarstaan rechts buiten beeld voor de volgende keer --
-      // instant, zodat dit teruszetten zelf niet nog eens zichtbaar meeschuift.
+      // Rolwissel: de laag die net is ingevloeid is nu de actieve; de oude
+      // wordt onzichtbaar klaargezet voor de volgende keer.
       [skyElCurrent, skyElNext] = [skyElNext, skyElCurrent];
-      instantTransform(skyElNext, 100);
+      instantOpacity(skyElNext, 0);
       skyScrollX = 0;
-      [groundElCurrent, groundElNext] = [groundElNext, groundElCurrent];
-      instantTransform(groundElNext, 100);
-    }, slideDurationMs);
+    }, 1150);
   }
 
   try{ best = parseInt(localStorage.getItem(CAPIRUN_BEST_KEY), 10) || 0; }catch(e){ best = 0; }
@@ -8717,6 +8751,10 @@ checkForInviteLink();
     y = 0; vy = 0; onGround = true;
     score = 0; scoreEl.textContent = '00000';
     groundScrollX = 0;
+    // -1 dwingt updateBiome(0) hieronder om altijd volledig te herinitialiseren,
+    // ook als het vorige potje toevallig ook al bij biome 0 was -- anders zou
+    // de oude pad-cellen-opruiming worden overgeslagen (zie updateBiome).
+    currentBiomeIndex = -1;
     updateBiome(0);
     spawnTimer = 0; nextSpawnAt = 900 + Math.random()*400;
     pendingDoubleSpawnAt = null;
@@ -8778,23 +8816,20 @@ checkForInviteLink();
     score += dt * 100;
     scoreEl.textContent = String(Math.floor(score)).padStart(5,'0');
     const speed = 190 + Math.min(score, 3000) * 0.09; // wordt geleidelijk sneller
-    updateBiome(undefined, speed);
+    updateBiome();
 
-    // het pad onder de capibara schuift met dezelfde snelheid mee als de
+    // het pad is een doorlopende baan van aan-elkaar-geplakte biome-cellen
+    // (zie updateGroundCells) die met dezelfde snelheid meeschuift als de
     // obstakels -- dat verkoopt het rennen veel overtuigender dan een
-    // stilstaand pad
-    groundScrollX -= speed * dt;
-    groundElCurrent.style.backgroundPositionX = groundScrollX + 'px';
-    groundElNext.style.backgroundPositionX = groundScrollX + 'px';
+    // stilstaand pad, en er is geen apart wisselmoment nodig wanneer de
+    // omgeving verandert: er komt simpelweg een ander stuk pad aan.
+    groundScrollX += speed * dt;
+    updateGroundCells();
 
-    // De achtergrond schuift in een vloeiende, ene richting mee (geen heen-en-
-    // weer meer -- dat oogde onrustig). De snelheid wordt zo berekend dat hij
-    // precies aan het einde van een biome (BIOME_SCORE_STEP punten, bij de
-    // hoogst mogelijke speed) net de rand van het "overschot" bereikt, en dus
-    // zo snel mogelijk gaat zonder ooit die rand binnen die tijd te raken.
-    // De kleine sprong terug naar 0 gebeurt precies op het moment dat de
-    // biome zelf ook al wisselt (zie updateBiome), en valt daardoor weg in
-    // de zachte fade-overgang.
+    // De lucht pant continu langzaam in één richting binnen een biome, zodat
+    // hij nooit stilstaat, tot aan de rand van het "overschot" (zie
+    // .capirun-sky-wrap). De overgang náár de volgende biome zelf gebeurt via
+    // een zachte overvloei (zie updateBiome), niet via deze pan.
     const skyMaxPan = stageWidthPx * 0.3;
     const biomeDurationS = BIOME_SCORE_STEP / 100; // score loopt altijd met 100/s op
     const maxPossibleSpeed = 190 + 3000 * 0.09;
