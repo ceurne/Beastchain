@@ -658,8 +658,16 @@
       setTimeout(() => {
         const cover = document.getElementById('bookCover');
         if(cover) cover.style.transform = 'rotateY(-150deg)';
+        // Het draaiende logo staat al vanaf het begin te draaien achter de
+        // kaft (zodat het geen fractie van een seconde hoeft te "opstarten"
+        // wanneer het zichtbaar wordt) -- maar reset de animatie hier wel,
+        // zodat 'm een frisse, volledige draai begint precies op het moment
+        // dat het boek opengaat, in plaats van halverwege een cyclus die al
+        // een tijdje onzichtbaar liep.
+        const logo = document.getElementById('loadingLogo');
+        if(logo){ logo.style.animation = 'none'; void logo.offsetWidth; logo.style.animation = 'loadingSpin 2.2s linear infinite'; }
         setTimeout(() => { const p = document.getElementById('coverPerspective'); if(p) p.remove(); }, 2600);
-      }, 900);
+      }, 1700);
     }
     if(img.complete && img.naturalWidth > 0){
       startOpening();
@@ -8365,15 +8373,12 @@ const LOADING_PHRASES_EN = [
 function hideLoadingScreen(){
   const el = document.getElementById('loadingScreen');
   if(!el) return;
-  // De kaft-animatie ervoor duurt zelf al 500ms (wachten) + 2400ms (openklappen)
-  // = 2900ms voor het laadscherm er ueberhaupt zichtbaar achter vandaan komt.
-  // Deze waarde moet dus ruim daarboven blijven, anders kan het laadscherm soms
-  // al weer verdwenen zijn nog voor de kaft klaar is met openklappen.
-  // Het plaatje zelf blijft nu 3500ms + 650ms wegfade-tijd staan, dus dit moet
-  // ruim daarboven blijven zodat het laadscherm niet al weer verdwenen is.
-  // De kaft-animatie ervoor duurt zelf al 900ms (wachten) + 2400ms (openklappen)
-  // = 3300ms voor het laadscherm er ueberhaupt zichtbaar achter vandaan komt.
-  const MIN_VISIBLE_MS = 4500;
+  // De kaft-animatie ervoor duurt zelf al 1700ms (wachten) + 2600ms (openklappen
+  // + verwijderen) = 4300ms voor het laadscherm er ueberhaupt zichtbaar achter
+  // vandaan komt. Deze waarde moet dus ruim daarboven blijven, anders kan het
+  // laadscherm soms al weer verdwenen zijn nog voor de kaft klaar is met
+  // openklappen.
+  const MIN_VISIBLE_MS = 6500;
   const shownAt = window.__loadingScreenShownAt || Date.now();
   const elapsed = Date.now() - shownAt;
   const remaining = Math.max(0, MIN_VISIBLE_MS - elapsed);
@@ -8445,7 +8450,11 @@ if(activeGameCode && openGame(activeGameCode)){
   });
 
   restoreBtn.addEventListener('click', () => {
-    const raw = inCode.value.trim();
+    // Verwijder ALLE witruimte (niet alleen aan het begin/eind) -- als de
+    // code via een andere app is doorgestuurd (Notities, WhatsApp, mail)
+    // sluipt er soms een spatie of regeleinde middenin de tekst, waardoor
+    // atob() faalt of stilletjes verkeerde bytes teruggeeft.
+    const raw = inCode.value.replace(/\s+/g, '');
     if(!raw){ showMsg(uiLang==='nl' ? 'Plak eerst een code.' : 'Paste a code first.', true); return; }
     let data;
     try{ data = JSON.parse(decodeURIComponent(escape(atob(raw)))); }
@@ -8459,8 +8468,14 @@ if(activeGameCode && openGame(activeGameCode)){
       if(data.favorite) setFavoriteAnimal(data.favorite);
       saveGlobalAchievements(data.achievements);
       if(data.capiRunBest) localStorage.setItem('beastchain_capirun_best', String(data.capiRunBest));
-    }catch(e){}
+    }catch(e){
+      showMsg(uiLang==='nl' ? 'Herstellen is mislukt — probeer het opnieuw.' : 'Restore failed — please try again.', true);
+      return;
+    }
     renderGlobalAchievements();
+    document.getElementById('nameBtnLabel').textContent = getPlayerName() || UI_STRINGS.nameBtn[uiLang].replace('✎ ', '');
+    fitLabelText(document.getElementById('nameBtnLabel'));
+    refreshFavoriteLogo();
     showMsg(uiLang==='nl' ? 'Hersteld ✓ — herlaad de pagina om alles bij te werken.' : 'Restored ✓ — reload the page to fully refresh.', false);
   });
 })();
