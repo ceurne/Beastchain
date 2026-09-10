@@ -8628,7 +8628,10 @@ checkForInviteLink();
   // op de grond zoals de andere obstakels), zodat je er echt voor moet
   // springen. Neemt de plek in van 1 obstakel-spawn per biome, in plaats
   // van een aparte spawnroutine erbij -- zie spawnObstacle().
-  const BUTTERFLY = { file:'capirun_bonus_butterfly.webp', w:40, h:45, hitboxW:32, flyHeight:22, isBonus:true, bonusScore:150 };
+  // flyHeight staat expres boven CAPY_HEIGHT (68): op de grond staand raakt
+  // de capibara 'm dan nooit, dus je moet altijd echt springen om 'm te
+  // pakken -- eerder kon je 'm bij het gewoon rennen al "aanraken".
+  const BUTTERFLY = { file:'capirun_bonus_butterfly.webp', w:30, h:34, hitboxW:24, flyHeight:70, isBonus:true, bonusScore:150 };
   // Elke BIOME_SCORE_STEP punten schuift het spel door naar de volgende
   // omgeving (en dus ook andere dieren-obstakels), daarna weer van voren af aan.
   const BIOME_SCORE_STEP = 700;
@@ -8956,7 +8959,13 @@ checkForInviteLink();
       // de vaste grondafstand (GROUND_Y). Die eerdere versie zorgde dat lagere
       // obstakels nooit een botsing konden geven, ook niet als je er recht
       // doorheen rende zonder te springen.
-      const overlapY = y < ob.height - 14; // nog wat ruimere speling
+      // De speling was een vaste 14px voor elk obstakel -- voor de grotere
+      // dieren-obstakels (tot 46px hoog) is dat verhoudingsgewijs veel
+      // krapper dan voor de kleinere stenen/schildpad, wat als onterecht
+      // geraakt kon aanvoelen bij een jump die er net goed uitzag. Nu een
+      // vaste minimale speling, of 40% van de hoogte als dat meer is.
+      const forgiveness = Math.max(14, ob.height * 0.4);
+      const overlapY = y < ob.height - forgiveness;
       if(movedThrough && overlapY){
         endGame();
         return;
