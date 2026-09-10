@@ -1045,7 +1045,10 @@
         </div>
       </div>
       <button class="capirun-jumpbtn" id="capiRunJumpBtn"><div class="capirun-jumpbtn-sprite"></div><span class="capirun-jumpbtn-label" id="capiRunJumpLabel">SPRING</span></button>
-      <div style="font-size:8.5px; color: var(--ink-dim); text-align:center; margin-top:4px; line-height:1.5;">
+      <div style="text-align:center; margin-top:2px;">
+        <button id="capiRunCreditsBtn" title="Bronnen van de afbeeldingen" style="background:none; border:none; padding:3px 8px; font-size:10px; color: var(--ink-dim); opacity:.4; cursor:pointer;">ⓘ</button>
+      </div>
+      <div id="capiRunCreditsPop" style="display:none; font-size:8.5px; color: var(--ink-dim); text-align:center; margin-top:2px; line-height:1.5;">
         Achtergronden: <a href="https://bongseng.itch.io/" target="_blank" rel="noopener" style="color:inherit;">Bongseng</a> ·
         IJsbeer: <a href="https://www.freepik.com" target="_blank" rel="noopener" style="color:inherit;">pch.vector / Freepik</a> ·
         Slang: <a href="https://www.vecteezy.com" target="_blank" rel="noopener" style="color:inherit;">Vecteezy.com</a> ·
@@ -8541,6 +8544,8 @@ checkForInviteLink();
   const modal = document.getElementById('capiRunModal');
   const openBtn = document.getElementById('capiRunOpenBtn');
   const closeBtn = document.getElementById('capiRunCloseBtn');
+  const creditsBtn = document.getElementById('capiRunCreditsBtn');
+  const creditsPop = document.getElementById('capiRunCreditsPop');
   const skyWrapEl = document.getElementById('capiRunSkyWrap');
   let skyElCurrent = document.getElementById('capiRunSky1');
   let skyElNext = document.getElementById('capiRunSky2');
@@ -8768,6 +8773,7 @@ checkForInviteLink();
   function closeCapiRun(){
     modal.style.display = 'none';
     stopLoop();
+    creditsPop.style.display = 'none'; // niet onthouden openstaan voor de volgende keer
     if(typeof updateTurnBanner === 'function') updateTurnBanner(); // zet het randje weer aan als er nog steeds gewacht wordt
   }
   function resetGame(){
@@ -8981,6 +8987,12 @@ checkForInviteLink();
   openBtn.addEventListener('click', openCapiRun);
   closeBtn.addEventListener('click', closeCapiRun);
   modal.addEventListener('click', (e) => { if(e.target === modal) closeCapiRun(); });
+  // Bronvermelding staat standaard verborgen achter dit kleine, lichte
+  // knopje -- wie het niet zoekt, ziet het niet, maar de credits zijn er
+  // gewoon voor wie er wel naar kijkt.
+  creditsBtn.addEventListener('click', () => {
+    creditsPop.style.display = creditsPop.style.display === 'none' ? 'block' : 'none';
+  });
   jumpBtn.addEventListener('click', () => {
     if(gameOverEl.style.display === 'flex'){ resetGame(); startGame(); return; }
     doJump();
