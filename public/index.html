@@ -8946,8 +8946,13 @@ checkForInviteLink();
       const hbOffset = ob.hitboxOffset || 0;
       const obLeftNow = ob.x + hbOffset, obRightNow = obLeftNow + hbW;
       const obLeftPrev = prevX + hbOffset, obRightPrev = obLeftPrev + hbW;
-      const movedThrough = (obRightPrev >= capyLeftPx && obLeftPrev <= capyRightPx) ||
-                            (obRightNow  >= capyLeftPx && obLeftNow  <= capyRightPx);
+      // Een overlap van een haartje (soms maar 1-2px, van de zichtbare
+      // sprite-rand net buiten het eigenlijke botsingsvak) telde al als
+      // "geraakt" -- dat kon voelen als doodgaan zonder iets aan te raken.
+      // Er moet nu een klein beetje echte overlap zijn voor het telt.
+      const OVERLAP_MARGIN = 5;
+      const movedThrough = (obRightPrev - OVERLAP_MARGIN >= capyLeftPx && obLeftPrev + OVERLAP_MARGIN <= capyRightPx) ||
+                            (obRightNow  - OVERLAP_MARGIN >= capyLeftPx && obLeftNow  + OVERLAP_MARGIN <= capyRightPx);
       if(ob.isBonus){
         // De vlinder vliegt los van de grond (flyHeight): geen "hoog genoeg
         // gesprongen" check zoals bij gevaar, maar juist "zit je sprong in
