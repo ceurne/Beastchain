@@ -2,7 +2,7 @@
 // Bump this version whenever you upload a new build; the old cache is then
 // thrown away automatically so players get the new version instead of a
 // stale copy from their phone.
-const CACHE = 'beastchain-v21';
+const CACHE = 'beastchain-v22';
 
 const APP_SHELL = [
   './',
@@ -75,11 +75,51 @@ self.addEventListener('fetch', (event) => {
     return res;
   }
 
-  // App shell: network first (so a fresh upload is picked up straight away),
-  // falling back to the cached copy when offline or when the fetch itself
-  // errors out.
+  // Fetches a fresh copy purely to refresh the cache for NEXT launch --
+  // never blocks anything on-screen right now, and only overwrites the
+  // cache if the download is actually complete (same size guard as above).
+  async function revalidateAppShellInBackground(attemptsLeft){
+    try{
+      const res = await fetch(req, { cache: 'no-store' });
+      if(res && res.status === 200){
+        const buf = await res.clone().arrayBuffer();
+        if(buf.byteLength >= MIN_APP_SHELL_BYTES){
+          const cache = await caches.open(CACHE);
+          await cache.put(req, res);
+          return;
+        }
+        if(attemptsLeft > 0) return revalidateAppShellInBackground(attemptsLeft - 1);
+      }
+    }catch(e){ /* offline or flaky -- next launch just tries again */ }
+  }
+
+  if (isAppShellDoc) {
+    // Cache-first voor de app-pagina zelf: die staat dan METEEN klaar zodra
+    // WebKit de eerste keer iets probeert te tekenen, in plaats van eerst een
+    // heel netwerk-rondje (soms 1-2s, extra lang vlak na het koud opstarten
+    // van de radio) te moeten afwachten voor er ook maar iets te parsen valt
+    // -- dat netwerk-wachten was de grootste resterende oorzaak van de witte
+    // flits, groter dan de losse animatie/CSS-optimalisaties die al gedaan
+    // waren. Een nieuwe versie wordt op de achtergrond opgehaald en klaargezet
+    // voor de VOLGENDE keer opstarten. Alleen als er nog helemaal niks in
+    // cache zit (allereerste bezoek, of na het wissen van site-data) wordt er
+    // alsnog op het netwerk gewacht, want dan is er simpelweg niets te tonen.
+    event.respondWith(
+      caches.match(req).then((cached) => {
+        if(cached){
+          event.waitUntil(revalidateAppShellInBackground(2));
+          return cached;
+        }
+        return fetchAppShellWithRetries(2).catch(() => caches.match('./index.html'));
+      })
+    );
+    return;
+  }
+
+  // Alle andere requests: ongewijzigd network-first, met een fallback naar de
+  // cache bij offline of een mislukte fetch.
   event.respondWith(
-    (isAppShellDoc ? fetchAppShellWithRetries(2) : fetch(req))
+    fetch(req)
       .then((res) => {
         if (res && res.status === 200 && url.origin === self.location.origin) {
           const copy = res.clone();
