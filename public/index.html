@@ -8637,7 +8637,11 @@ checkForInviteLink();
   const BIOME_SCORE_STEP = 700;
   let currentBiomeIndex = -1; // -1 dwingt de allereerste updateBiome() om altijd te wisselen
   let biomeTransitionTimer = null; // lopende rolwissel-timeout van een schuif-overgang, zie updateBiome()
-  let butterflyReadyToSpawn = false; // wordt bij elke biome-wissel klaargezet, zie updateBiome() en spawnObstacle()
+  // De vlinder komt 1x per biome, maar niet meer altijd als allereerste
+  // obstakel -- butterflySkipsLeft bepaalt hoeveel gewone obstakel-spawns er
+  // eerst nog moeten gebeuren, zodat het moment per biome-bezoek varieert.
+  let butterflyPending = false;
+  let butterflySkipsLeft = 0;
 
   function getObstaclePool(){
     const idx = currentBiomeIndex >= 0 ? currentBiomeIndex : 0;
@@ -8699,7 +8703,8 @@ checkForInviteLink();
     const idx = forceIndex !== undefined ? forceIndex : Math.floor(score / BIOME_SCORE_STEP) % BIOMES.length;
     if(idx === currentBiomeIndex) return;
     currentBiomeIndex = idx;
-    butterflyReadyToSpawn = true; // 1x per biome, zie spawnObstacle()
+    butterflyPending = true;
+    butterflySkipsLeft = Math.floor(Math.random() * 4); // 0-3 gewone obstakels eerst, voor variatie in het moment
     const biome = BIOMES[idx];
 
     // Een eerder geplande rolwissel van de lucht-overvloei (zie setTimeout
@@ -8829,10 +8834,11 @@ checkForInviteLink();
     // vanaf de echte rechterrand.
     stageWidthPx = stage.getBoundingClientRect().width || stageWidthPx;
     let def;
-    if(butterflyReadyToSpawn){
+    if(butterflyPending && butterflySkipsLeft <= 0){
       def = BUTTERFLY;
-      butterflyReadyToSpawn = false;
+      butterflyPending = false;
     } else {
+      if(butterflyPending) butterflySkipsLeft--;
       const pool = getObstaclePool();
       def = pool[Math.floor(Math.random() * pool.length)];
     }
