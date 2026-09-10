@@ -8617,11 +8617,18 @@ checkForInviteLink();
       { file:'capirun_obstacle_turtle.png', w:45, h:22, hitboxW:38 }
     ]}
   ];
+  // De vlinder is een bonus, geen gevaar: geen botsing bij missen, wel een
+  // score-bonus als je 'm raakt. Vliegt op flyHeight boven de grond (i.p.v.
+  // op de grond zoals de andere obstakels), zodat je er echt voor moet
+  // springen. Neemt de plek in van 1 obstakel-spawn per biome, in plaats
+  // van een aparte spawnroutine erbij -- zie spawnObstacle().
+  const BUTTERFLY = { file:'capirun_bonus_butterfly.webp', w:40, h:45, hitboxW:32, flyHeight:22, isBonus:true, bonusScore:150 };
   // Elke BIOME_SCORE_STEP punten schuift het spel door naar de volgende
   // omgeving (en dus ook andere dieren-obstakels), daarna weer van voren af aan.
   const BIOME_SCORE_STEP = 700;
   let currentBiomeIndex = -1; // -1 dwingt de allereerste updateBiome() om altijd te wisselen
   let biomeTransitionTimer = null; // lopende rolwissel-timeout van een schuif-overgang, zie updateBiome()
+  let butterflyReadyToSpawn = false; // wordt bij elke biome-wissel klaargezet, zie updateBiome() en spawnObstacle()
 
   function getObstaclePool(){
     const idx = currentBiomeIndex >= 0 ? currentBiomeIndex : 0;
@@ -8683,6 +8690,7 @@ checkForInviteLink();
     const idx = forceIndex !== undefined ? forceIndex : Math.floor(score / BIOME_SCORE_STEP) % BIOMES.length;
     if(idx === currentBiomeIndex) return;
     currentBiomeIndex = idx;
+    butterflyReadyToSpawn = true; // 1x per biome, zie spawnObstacle()
     const biome = BIOMES[idx];
 
     // Een eerder geplande rolwissel van de lucht-overvloei (zie setTimeout
@@ -8810,18 +8818,25 @@ checkForInviteLink();
     // obstakels ergens halverwege het scherm liet verschijnen in plaats van
     // vanaf de echte rechterrand.
     stageWidthPx = stage.getBoundingClientRect().width || stageWidthPx;
-    const pool = getObstaclePool();
-    const def = pool[Math.floor(Math.random() * pool.length)];
+    let def;
+    if(butterflyReadyToSpawn){
+      def = BUTTERFLY;
+      butterflyReadyToSpawn = false;
+    } else {
+      const pool = getObstaclePool();
+      def = pool[Math.floor(Math.random() * pool.length)];
+    }
     const el = document.createElement('img');
     el.src = 'game-assets/' + def.file;
     el.className = 'capirun-obstacle';
     el.style.width = def.w + 'px';
-    el.style.bottom = GROUND_Y + 'px';
+    el.style.bottom = (GROUND_Y + (def.flyHeight || 0)) + 'px';
     el.style.left = '0px';
     el.style.transform = `translateX(${stageWidthPx}px)`;
     obstaclesEl.appendChild(el);
     const hitboxOffset = (def.w - def.hitboxW) / 2; // het smallere vak in het midden van de afbeelding houden
-    obstacles.push({ el, x: stageWidthPx, width: def.w, height: def.h, hitboxW: def.hitboxW, hitboxOffset });
+    obstacles.push({ el, x: stageWidthPx, width: def.w, height: def.h, hitboxW: def.hitboxW, hitboxOffset,
+      isBonus: !!def.isBonus, flyHeight: def.flyHeight || 0, bonusScore: def.bonusScore || 0 });
   }
 
   function loop(now){
@@ -8917,6 +8932,18 @@ checkForInviteLink();
       const obLeftPrev = prevX + hbOffset, obRightPrev = obLeftPrev + hbW;
       const movedThrough = (obRightPrev >= capyLeftPx && obLeftPrev <= capyRightPx) ||
                             (obRightNow  >= capyLeftPx && obLeftNow  <= capyRightPx);
+      if(ob.isBonus){
+        // De vlinder vliegt los van de grond (flyHeight): geen "hoog genoeg
+        // gesprongen" check zoals bij gevaar, maar juist "zit je sprong in
+        // haar hoogteband" -- mis je 'm, dan gebeurt er simpelweg niets.
+        const inBand = y > ob.flyHeight - 14 && y < ob.flyHeight + ob.height + 14;
+        if(movedThrough && inBand){
+          score += ob.bonusScore;
+          ob.el.remove();
+          obstacles.splice(i,1);
+        }
+        continue;
+      }
       // Belangrijk: hier moet de sprong-hóógte (y, 0 = op de grond) vergeleken
       // worden met de hoogte van het obstakel -- niet de voetpositie inclusief
       // de vaste grondafstand (GROUND_Y). Die eerdere versie zorgde dat lagere
