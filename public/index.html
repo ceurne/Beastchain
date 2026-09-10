@@ -1187,6 +1187,14 @@
             <option value="0">Oneindig</option>
           </select>
         </div>
+        <div>
+          <label class="small" id="cpuDifficultyLabel">Moeilijkheidsgraad</label>
+          <select id="cpuDifficultySelect">
+            <option value="easy">Makkelijk</option>
+            <option value="normal" selected>Normaal</option>
+            <option value="hard">Moeilijk</option>
+          </select>
+        </div>
       </div>
       <button class="btn-role" id="startCpuGameBtn">Nieuw spel starten</button>
     </div>
@@ -1685,6 +1693,7 @@ let player2Fav = '';
 let localPlayerNames = [];
 let localPlayerCount = 2;
 let chainLimit = 0; // 0 = infinite
+let cpuDifficulty = 'normal'; // 'easy' | 'normal' | 'hard', zie cpuMove()
 
 const PLAYER_NAME_KEY = 'beastchain_player_name';
 function getPlayerName(){ try{ return localStorage.getItem(PLAYER_NAME_KEY) || ''; }catch(e){ return ''; } }
@@ -1757,6 +1766,7 @@ const UI_STRINGS = {
   cpuIntroP:         { nl:'Speel tegen de computer — net als bij twee spelers geldt: wie de hoogste score heeft bij de kettinglimiet, wint.', en:'Play against the computer — just like with two players, whoever has the highest score at the chain limit wins.' },
   cpuGameLangLabel:  { nl:'Speeltaal', en:'Game language' },
   cpuChainLimitLabel:{ nl:'Kettinglimiet', en:'Chain limit' },
+  cpuDifficultyLabel:{ nl:'Moeilijkheidsgraad', en:'Difficulty' },
 };
 
 function applyUIStrings(){
@@ -1775,6 +1785,7 @@ function applyUIStrings(){
     ? 'Kies hieronder Nederlands of Engels voor het spel zelf, onafhankelijk van deze schermtaal.'
     : "Choose Dutch or English for the game itself below, independent of this screen's language.";
   translateChainLimitOptions();
+  translateDifficultyOptions();
   joinCodeInput.placeholder = uiLang==='nl' ? 'bv. 482913' : 'e.g. 482913';
   inCode.placeholder = uiLang==='nl' ? 'Geplakte spelstand...' : 'Pasted game state...';
   // Deze knop wordt niet via de generieke UI_STRINGS-lus vertaald, omdat zijn
@@ -1801,6 +1812,20 @@ function translateChainLimitOptions(){
         : '';
       opt.textContent = numberLabel(opt.value) + suffix;
     }
+  }
+}
+
+// Zelfde reden als hierboven: <option>-tekst van de moeilijkheidsgraad
+// wordt niet door de generieke UI_STRINGS-lus vertaald.
+function translateDifficultyOptions(){
+  const labels = {
+    easy:   { nl:'Makkelijk', en:'Easy' },
+    normal: { nl:'Normaal', en:'Normal' },
+    hard:   { nl:'Moeilijk', en:'Hard' }
+  };
+  if(!cpuDifficultySelect) return;
+  for(const opt of cpuDifficultySelect.options){
+    if(labels[opt.value]) opt.textContent = labels[opt.value][uiLang];
   }
 }
 
@@ -1876,6 +1901,7 @@ const chainLimitSelect = document.getElementById('chainLimitSelect');
 const pvpGameLangSelect = document.getElementById('pvpGameLangSelect');
 const cpuLobbyEl = document.getElementById('cpuLobby');
 const cpuChainLimitSelect = document.getElementById('cpuChainLimitSelect');
+const cpuDifficultySelect = document.getElementById('cpuDifficultySelect');
 const cpuGameLangSelect = document.getElementById('cpuGameLangSelect');
 const startCpuGameBtn = document.getElementById('startCpuGameBtn');
 const joinCodeInput = document.getElementById('joinCodeInput');
@@ -6779,7 +6805,7 @@ function saveCpuGame(){
   if(mode !== 'cpu') return;
   try{
     localStorage.setItem(CPU_GAME_KEY, JSON.stringify({
-      chainLimit, over, resultMsg, endWinner, lang: gameLang,
+      chainLimit, difficulty: cpuDifficulty, over, resultMsg, endWinner, lang: gameLang,
       chain: chain.map(e => ({name:e.name, gen:e.gen, by:e.by, skipBonus:!!e.skipBonus, jokerUsed:!!e.jokerUsed, hintCost:!!e.hintCost}))
     }));
   }catch(e){}
@@ -7095,12 +7121,34 @@ function cpuMove(requiredLetter){
   // "infinite" 0-limit mode) and never fully drops to zero, so even a long
   // 100+ animal game keeps a baseline preference for familiar animals
   // throughout, instead of opening up completely after move 20.
+  // De moeilijkheidsgraad schuift deze curve door: makkelijk blijft bijna
+  // altijd bij bekende dieren, moeilijk laat al snel (bijna) alles toe.
   const limitForBias = chainLimit || 100;
   const progress = chain.length / limitForBias;
-  const familiarBias = progress < 0.1 ? 1 : (progress < 0.2 ? 0.6 : 0.25);
+  let familiarBias;
+  if(cpuDifficulty === 'easy'){
+    familiarBias = progress < 0.3 ? 1 : 0.85;
+  } else if(cpuDifficulty === 'hard'){
+    familiarBias = progress < 0.05 ? 0.5 : (progress < 0.15 ? 0.15 : 0);
+  } else {
+    familiarBias = progress < 0.1 ? 1 : (progress < 0.2 ? 0.6 : 0.25);
+  }
   if(familiarBias > 0 && Math.random() < familiarBias){
     const familiarOnly = candidates.filter(n => isFamiliar(n));
     if(familiarOnly.length > 0) candidates = familiarOnly;
+  }
+
+  // Moeilijk speelt ook tactisch: kiest af en toe bewust een dier dat eindigt
+  // op een letter waar nog maar weinig dieren voor over zijn, om de speler
+  // in het nauw te drijven -- in plaats van altijd zomaar iets te noemen.
+  if(cpuDifficulty === 'hard' && candidates.length > 1 && Math.random() < 0.6){
+    const scored = candidates.map(n => {
+      const letter = lastLetter(n);
+      const remaining = (PER_LETTER[letter]||[]).filter(x => !used.has(x.toLowerCase()) && x.toLowerCase() !== n.toLowerCase()).length;
+      return { n, remaining };
+    }).sort((a,b) => a.remaining - b.remaining);
+    const trapCount = Math.max(1, Math.ceil(scored.length * 0.35));
+    candidates = scored.slice(0, trapCount).map(s => s.n);
   }
 
   const pickName = candidates[Math.floor(Math.random()*candidates.length)];
@@ -7824,6 +7872,7 @@ function switchToCpu(){
 
 function resumeCpuGame(saved){
   chainLimit = saved.chainLimit || 0;
+  cpuDifficulty = saved.difficulty || 'normal';
   gameStartKnownAnimals = new Set(loadStats().uniqueAnimals || []);
   used = new Set(); chain = []; awardedAchievements = new Set();
   screenEl.innerHTML = '';
@@ -7856,6 +7905,7 @@ function resumeCpuGame(saved){
 function startNewCpuGame(){
   applyGameLanguage(cpuGameLangSelect.value === 'en' ? 'en' : 'nl');
   chainLimit = parseInt(cpuChainLimitSelect.value, 10) || 0;
+  cpuDifficulty = cpuDifficultySelect.value || 'normal';
   cpuLobbyEl.style.display = 'none';
   gameAreaEl.style.display = 'block';
   resetGameState();
