@@ -2,7 +2,7 @@
 // Bump this version whenever you upload a new build; the old cache is then
 // thrown away automatically so players get the new version instead of a
 // stale copy from their phone.
-const CACHE = 'beastchain-v23';
+const CACHE = 'beastchain-v24';
 
 const APP_SHELL = [
   './',
@@ -13,10 +13,29 @@ const APP_SHELL = [
   './apple-touch-icon.png'
 ];
 
+// Safari/WebKit refuses to use a service-worker-served response for a
+// top-level navigation if that response went through an HTTP redirect at any
+// point (Response.redirected === true) -- even though its final body and
+// status are completely normal. If a cached copy was ever produced by a
+// fetch that followed a redirect (e.g. a canonicalising "/" <-> "/index.html"
+// redirect at the edge), every later navigation served from that cache entry
+// fails outright on iOS with "Response served by service worker has
+// redirections". Rebuilding a plain Response strips that flag for good.
+async function stripRedirectFlag(res){
+  if(!res.redirected) return res;
+  const buf = await res.clone().arrayBuffer();
+  return new Response(buf, { status: res.status, statusText: res.statusText, headers: res.headers });
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then((cache) => Promise.all(APP_SHELL.map((url) =>
+        fetch(url, { cache: 'no-store' })
+          .then((res) => res && res.status === 200 ? stripRedirectFlag(res) : null)
+          .then((clean) => clean ? cache.put(url, clean) : null)
+          .catch(() => {}) // one missing/failed asset shouldn't block the rest from installing
+      )))
       .then(() => self.skipWaiting())
       .catch(() => self.skipWaiting())
   );
@@ -60,11 +79,23 @@ self.addEventListener('fetch', (event) => {
     (url.pathname === '/' || url.pathname.endsWith('/index.html') || url.pathname === '/index.html');
   const MIN_APP_SHELL_BYTES = 200000;
 
+  // Same fix as stripRedirectFlag() above, just reusing the size-check's
+  // already-read body instead of cloning and reading it a second time.
+  function stripRedirectFlagFromBuf(res, buf){
+    if(!res.redirected) return res;
+    return new Response(buf, { status: res.status, statusText: res.statusText, headers: res.headers });
+  }
+
   async function fetchAppShellWithRetries(attemptsLeft){
     const res = await fetch(req, { cache: 'no-store' });
     if(res && res.status === 200){
       const buf = await res.clone().arrayBuffer();
-      if(buf.byteLength >= MIN_APP_SHELL_BYTES) return res;
+      if(buf.byteLength >= MIN_APP_SHELL_BYTES){
+        const clean = stripRedirectFlagFromBuf(res, buf);
+        const cache = await caches.open(CACHE);
+        cache.put(req, clean.clone()).catch(() => {});
+        return clean;
+      }
       // Truncated download. Usually a passing connection hiccup -- try again
       // a couple of times before giving up, since a retry alone often just
       // succeeds cleanly rather than needing to fall back to anything.
@@ -84,8 +115,9 @@ self.addEventListener('fetch', (event) => {
       if(res && res.status === 200){
         const buf = await res.clone().arrayBuffer();
         if(buf.byteLength >= MIN_APP_SHELL_BYTES){
+          const clean = stripRedirectFlagFromBuf(res, buf);
           const cache = await caches.open(CACHE);
-          await cache.put(req, res);
+          await cache.put(req, clean);
           return;
         }
         if(attemptsLeft > 0) return revalidateAppShellInBackground(attemptsLeft - 1);
@@ -120,10 +152,11 @@ self.addEventListener('fetch', (event) => {
   // cache bij offline of een mislukte fetch.
   event.respondWith(
     fetch(req)
-      .then((res) => {
+      .then(async (res) => {
         if (res && res.status === 200 && url.origin === self.location.origin) {
-          const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
+          const clean = await stripRedirectFlag(res);
+          caches.open(CACHE).then((cache) => cache.put(req, clean.clone())).catch(() => {});
+          return clean;
         }
         return res;
       })
