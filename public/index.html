@@ -198,9 +198,11 @@
     display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; font-style:normal;
   }
   .stamp-animal-chip{
-    font-family:'DM Sans', sans-serif; font-size:10px; color: var(--ink);
+    font-family:'DM Sans', sans-serif; font-size:10px; color: var(--ink); cursor:pointer;
     background: var(--card); border:1px solid var(--border); border-radius:20px; padding:2px 9px;
   }
+  .stamp-animal-chip:active{ transform: scale(.95); }
+  .stamp-animal-chip.is-loading{ opacity:.5; cursor:wait; }
 
   .stats-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .stat-card{ background: var(--paper); border-radius:10px; padding:12px; text-align:center; }
@@ -2136,22 +2138,34 @@ function renderGlobalAchievements(){
   }).join('');
   globalAchvList.querySelectorAll('.stamp-row.earned').forEach(row => {
     row.addEventListener('click', () => {
-      const cat = row.dataset.cat, tier = row.dataset.tier, count = row.dataset.count;
+      const cat = row.dataset.cat;
       const def = ACH[cat];
       const already = row.nextElementSibling && row.nextElementSibling.classList.contains('stamp-expand');
       globalAchvList.querySelectorAll('.stamp-expand').forEach(el => el.remove());
       if(already) return;
+      const animals = namesInCategory(cat);
       const desc = uiLang === 'nl'
-        ? `${def.name} — behaald door ${count} dieren uit deze categorie te noemen.`
-        : `${def.name} — earned by naming ${count} animals in this category.`;
+        ? `${def.name} — ${animals.length} dieren ontdekt in deze categorie. Klik op een dier voor een foto.`
+        : `${def.name} — ${animals.length} animals discovered in this category. Click an animal for a photo.`;
       const div = document.createElement('div');
       div.className = 'stamp-expand';
       div.textContent = desc;
-      const names = namesInCategory(cat);
-      if(names.length){
+      if(animals.length){
         const chips = document.createElement('div');
         chips.className = 'stamp-animal-chips';
-        chips.innerHTML = names.map(n => `<span class="stamp-animal-chip">${escapeHtml(n)}</span>`).join('');
+        chips.innerHTML = animals.map(a => `<span class="stamp-animal-chip" data-name="${escapeHtml(a.name)}" data-gen="${a.gen}">${escapeHtml(a.name)}</span>`).join('');
+        chips.querySelectorAll('.stamp-animal-chip').forEach(chip => {
+          chip.addEventListener('click', () => {
+            const name = chip.dataset.name, gen = Number(chip.dataset.gen);
+            const myToken = ++revealToken;
+            chip.classList.add('is-loading');
+            fetchAnimalImage(name, gen).then(url => {
+              chip.classList.remove('is-loading');
+              if(myToken !== revealToken) return; // a newer click happened meanwhile
+              openLightbox(url, name);
+            });
+          });
+        });
         div.appendChild(chips);
       }
       row.insertAdjacentElement('afterend', div);
@@ -2165,18 +2179,19 @@ function renderGlobalAchievements(){
 // woestijn, nachtdier, ...). Gebruikt bewust de vaste ANIMAL_MAP_NL/EN
 // (niet de wisselbare animalByLower) omdat uniqueAnimals namen uit beide
 // talen door elkaar kan bevatten, afhankelijk van in welke taal elk potje
-// destijds gespeeld werd.
+// destijds gespeeld werd. Geeft {name, gen} terug (i.p.v. alleen de naam)
+// zodat een klik op een dier meteen de juiste foto kan opzoeken.
 function namesInCategory(catId){
   const s = loadStats();
-  const names = [];
+  const animals = [];
   for(const lname of (s.uniqueAnimals || [])){
     const rec = ANIMAL_MAP_NL.get(lname) || ANIMAL_MAP_EN.get(lname);
     if(!rec) continue;
     const cats = [CLASS_NAMES[rec.gen]];
     THEMATIC_KEYS.forEach((k,i) => { if(rec.mask & (1<<i)) cats.push(k); });
-    if(cats.includes(catId)) names.push(rec.name);
+    if(cats.includes(catId)) animals.push({ name: rec.name, gen: rec.gen });
   }
-  return names.sort((a,b) => a.localeCompare(b, uiLang));
+  return animals.sort((a,b) => a.name.localeCompare(b.name, uiLang));
 }
 
 function computePlayerCategoryCounts(playerKey){
