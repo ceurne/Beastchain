@@ -1060,7 +1060,6 @@
   <div id="capiRunModal" class="modal-overlay" style="display:none;">
     <div class="capirun-card">
       <button class="lightbox-close" id="capiRunCloseBtn" style="position:absolute;top:10px;right:10px;z-index:20;">×</button>
-      <button class="lightbox-close" id="capiRunMuteBtn" style="position:absolute;top:10px;left:10px;z-index:20;font-size:12px;">🔊</button>
       <div class="capirun-stage" id="capiRunStage">
         <div class="capirun-sky-wrap" id="capiRunSkyWrap">
           <div class="capirun-sky-layer" id="capiRunSky1" style="background-image:url('game-assets/capirun_sky_meadow.jpg'); opacity:1;"></div>
@@ -1084,7 +1083,8 @@
         </div>
       </div>
       <button class="capirun-jumpbtn" id="capiRunJumpBtn"><div class="capirun-jumpbtn-sprite"></div><span class="capirun-jumpbtn-label" id="capiRunJumpLabel">SPRING</span></button>
-      <div style="text-align:center; margin-top:2px;">
+      <div style="text-align:center; margin-top:2px; display:flex; align-items:center; justify-content:center; gap:2px;">
+        <button id="capiRunMuteBtn" title="Geluid aan/uit" style="background:none; border:none; padding:3px 6px; color: var(--ink-dim); opacity:.4; cursor:pointer; display:flex;"></button>
         <button id="capiRunCreditsBtn" title="Bronnen van de afbeeldingen" style="background:none; border:none; padding:3px 8px; font-size:10px; color: var(--ink-dim); opacity:.4; cursor:pointer;">ⓘ</button>
       </div>
       <div id="capiRunCreditsPop" style="display:none; font-size:8.5px; color: var(--ink-dim); text-align:center; margin-top:2px; line-height:1.5;">
@@ -8796,7 +8796,12 @@ checkForInviteLink();
   const SOUND_KEY = 'beastchain_capirun_sound';
   let soundEnabled = true;
   try{ soundEnabled = localStorage.getItem(SOUND_KEY) !== '0'; }catch(e){}
-  function updateMuteBtn(){ muteBtn.textContent = soundEnabled ? '🔊' : '🔇'; }
+  // Klassieke lijn-icoontjes (zelfde stijl als de andere SVG-iconen in het
+  // spel) i.p.v. een emoji -- een luidspreker met geluidsgolfjes, of met een
+  // kruis erdoorheen als het geluid uit staat.
+  const ICON_VOLUME_ON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M18.5 5.5a9 9 0 0 1 0 13"></path></svg>';
+  const ICON_VOLUME_OFF = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="22" y1="9" x2="16" y2="15"></line><line x1="16" y1="9" x2="22" y2="15"></line></svg>';
+  function updateMuteBtn(){ muteBtn.innerHTML = soundEnabled ? ICON_VOLUME_ON : ICON_VOLUME_OFF; }
   // Web Audio API i.p.v. losse <audio>-elementen: een <audio>.play() heeft
   // op veel toestellen (vooral mobiel) een merkbare opstart-vertraging bij
   // ELKE aanroep, wat een sprong-geluidje net dat beetje te laat liet klinken
