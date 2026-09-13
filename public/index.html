@@ -8823,6 +8823,36 @@ checkForInviteLink();
     src.connect(audioCtx.destination);
     src.start(0);
   }
+  // Achtergrondmuziek: één naadloos lussend deuntje (loop=true op de
+  // AudioBufferSourceNode zelf, i.p.v. een <audio loop> -- dat laatste geeft
+  // op sommige browsers een hoorbaar hikje bij elke herhaling). Speelt vanaf
+  // startGame() tot en met endGame(), duidelijk zachter dan de effecten via
+  // een eigen GainNode zodat spring/botsen/bonus er altijd doorheen te horen
+  // blijven.
+  let bgmBuffer = null;
+  let bgmSource = null;
+  const bgmGain = { node: null };
+  function startBgm(){
+    if(!soundEnabled || !audioCtx || !bgmBuffer) return;
+    stopBgm();
+    if(audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    if(!bgmGain.node){
+      bgmGain.node = audioCtx.createGain();
+      bgmGain.node.gain.value = 0.35;
+      bgmGain.node.connect(audioCtx.destination);
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = bgmBuffer;
+    src.loop = true;
+    src.connect(bgmGain.node);
+    src.start(0);
+    bgmSource = src;
+  }
+  function stopBgm(){
+    if(!bgmSource) return;
+    try{ bgmSource.stop(); }catch(e){}
+    bgmSource = null;
+  }
   function preloadCapiRunAssets(){
     if(assetsPreloaded) return;
     assetsPreloaded = true;
@@ -8842,6 +8872,11 @@ checkForInviteLink();
           .then(buf => { sfxBuffers[key] = buf; })
           .catch(() => {}); // ontbrekend/niet te decoderen geluid mag de rest van het spel nooit blokkeren
       }
+      fetch('game-assets/capirun_bgm.wav')
+        .then(res => res.arrayBuffer())
+        .then(data => audioCtx.decodeAudioData(data))
+        .then(buf => { bgmBuffer = buf; })
+        .catch(() => {});
     }
   }
   let currentBiomeIndex = -1; // -1 dwingt de allereerste updateBiome() om altijd te wisselen
@@ -8995,6 +9030,7 @@ checkForInviteLink();
   function closeCapiRun(){
     modal.style.display = 'none';
     stopLoop();
+    stopBgm();
     creditsPop.style.display = 'none'; // niet onthouden openstaan voor de volgende keer
     if(typeof updateTurnBanner === 'function') updateTurnBanner(); // zet het randje weer aan als er nog steeds gewacht wordt
   }
@@ -9024,6 +9060,7 @@ checkForInviteLink();
     running = true;
     lastTime = performance.now();
     stopLoop();
+    startBgm();
     rafId = requestAnimationFrame(loop);
   }
   function stopLoop(){ if(rafId){ cancelAnimationFrame(rafId); rafId = null; } }
@@ -9221,6 +9258,7 @@ checkForInviteLink();
   function endGame(){
     running = false;
     stopLoop();
+    stopBgm();
     const finalScore = Math.floor(score);
     const prevBest = best;
     let isNewBest = false;
@@ -9282,6 +9320,8 @@ checkForInviteLink();
     soundEnabled = !soundEnabled;
     try{ localStorage.setItem(SOUND_KEY, soundEnabled ? '1' : '0'); }catch(e){}
     updateMuteBtn();
+    if(!soundEnabled) stopBgm();
+    else if(running) startBgm();
   });
   // Bronvermelding staat standaard verborgen achter dit kleine, lichte
   // knopje -- wie het niet zoekt, ziet het niet, maar de credits zijn er
