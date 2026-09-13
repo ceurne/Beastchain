@@ -8810,6 +8810,37 @@ checkForInviteLink();
   // kost tijd, niet elke afzonderlijke keer dat het geluid klinkt).
   let audioCtx = null;
   const sfxBuffers = {};
+  // Op iPhone negeert Web Audio/HTML-audio de fysieke bel/stil-schakelaar
+  // niet vanzelf -- Safari plaatst zulk geluid standaard in de "ambient"
+  // categorie, die expliciet stil blijft als het toestel op stil staat.
+  // Geluid via een <video>-element (met een echte audiotrack) valt
+  // wél onder een andere categorie die de belknop negeert. Door alle geluid
+  // via een MediaStreamDestination naar een onzichtbaar <video>-element te
+  // sturen (i.p.v. rechtstreeks naar audioCtx.destination) buigen we dat om.
+  // Dit is een bekende, maar door Apple nooit officieel toegezegde truc --
+  // hij kan in een toekomstige iOS-versie stoppen met werken. Waar
+  // MediaStreamDestination niet bestaat, valt dit gewoon terug op normale
+  // (wel-aan-de-belknop-gebonden) audio in plaats van helemaal niets.
+  let masterGain = null;
+  function ensureAudioOutput(){
+    if(masterGain || !audioCtx) return masterGain;
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 1.0;
+    try{
+      const dest = audioCtx.createMediaStreamDestination();
+      masterGain.connect(dest);
+      const video = document.createElement('video');
+      video.srcObject = dest.stream;
+      video.setAttribute('playsinline', '');
+      video.muted = false;
+      video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;';
+      document.body.appendChild(video);
+      video.play().catch(() => {});
+    }catch(e){
+      masterGain.connect(audioCtx.destination);
+    }
+    return masterGain;
+  }
   function playSfx(key){
     if(!soundEnabled || !audioCtx) return;
     const buf = sfxBuffers[key];
@@ -8820,7 +8851,7 @@ checkForInviteLink();
     if(audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     const src = audioCtx.createBufferSource();
     src.buffer = buf;
-    src.connect(audioCtx.destination);
+    src.connect(ensureAudioOutput());
     src.start(0);
   }
   // Achtergrondmuziek: één naadloos lussend deuntje (loop=true op de
@@ -8844,7 +8875,7 @@ checkForInviteLink();
       // onhoorbaar. 1.0 laat de eigen, al zachte mix van het bestand gewoon
       // staan zonder verdere onnodige demping.
       bgmGain.node.gain.value = 1.0;
-      bgmGain.node.connect(audioCtx.destination);
+      bgmGain.node.connect(ensureAudioOutput());
     }
     const src = audioCtx.createBufferSource();
     src.buffer = bgmBuffer;
@@ -8870,6 +8901,9 @@ checkForInviteLink();
       try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ audioCtx = null; }
     }
     if(audioCtx){
+      // Zo vroeg mogelijk (nog binnen dezelfde tik-op-CapiRun-open) opzetten
+      // -- de video-truc hierboven moet dicht bij de gebruikersactie starten.
+      ensureAudioOutput();
       for(const [key, file] of Object.entries(SFX_FILES)){
         fetch('game-assets/' + file)
           .then(res => res.arrayBuffer())
@@ -9292,7 +9326,10 @@ checkForInviteLink();
     } else {
       gameOverScoreEl.classList.remove('is-newbest');
       gameOverSubEl.textContent = uiLang === 'nl' ? 'Tik op springen om opnieuw te proberen' : 'Tap jump to try again';
-      playSfx('gameover');
+      // Een korte pauze na de botsing-thud i.p.v. er precies overheen --
+      // beide tegelijk stapelden qua volume op tot iets dat veel harder
+      // aanvoelde dan elk geluid apart.
+      setTimeout(() => playSfx('gameover'), 180);
     }
     gameOverEl.style.display = 'flex';
   }
