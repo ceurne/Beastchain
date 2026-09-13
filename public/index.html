@@ -2145,8 +2145,8 @@ function renderGlobalAchievements(){
       if(already) return;
       const animals = namesInCategory(cat);
       const desc = uiLang === 'nl'
-        ? `${def.name} — ${animals.length} dieren ontdekt in deze categorie. Klik op een dier voor een foto.`
-        : `${def.name} — ${animals.length} animals discovered in this category. Click an animal for a photo.`;
+        ? `${def.name} — ${animals.length} dieren ontdekt in deze categorie.`
+        : `${def.name} — ${animals.length} animals discovered in this category.`;
       const div = document.createElement('div');
       div.className = 'stamp-expand';
       div.textContent = desc;
