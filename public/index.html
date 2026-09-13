@@ -8065,8 +8065,10 @@ function renderJourneyStats(){
     if(count > topLetterCount){ topLetterCount = count; topLetter = letter; }
   }
   const L = uiLang === 'nl'
-    ? { longest:'Langste ketting', unique:'Unieke dieren', played:'Spellen gespeeld', topCat:'Meest gespeeld', total:'Totaal gezegd', highest:'Hoogste score', won:'Gewonnen', letter:'Favoriete letter' }
-    : { longest:'Longest chain', unique:'Unique animals', played:'Games played', topCat:'Most played', total:'Total said', highest:'Highest score', won:'Won', letter:'Favourite letter' };
+    ? { longest:'Langste ketting', unique:'Unieke dieren', played:'Spellen gespeeld', topCat:'Meest gespeeld', total:'Totaal gezegd', highest:'Hoogste score', won:'Gewonnen', letter:'Favoriete letter', capirun:'CapiRun topscore' }
+    : { longest:'Longest chain', unique:'Unique animals', played:'Games played', topCat:'Most played', total:'Total said', highest:'Highest score', won:'Won', letter:'Favourite letter', capirun:'CapiRun high score' };
+  let capiRunBest = 0;
+  try{ capiRunBest = parseInt(localStorage.getItem('beastchain_capirun_best'), 10) || 0; }catch(e){}
   const cards = [
     [s.longestChain||0, L.longest],
     [(s.uniqueAnimals||[]).length, L.unique],
@@ -8076,6 +8078,7 @@ function renderJourneyStats(){
     [s.highestScore||0, L.highest],
     [s.gamesWon||0, L.won],
     [topLetter, L.letter],
+    [capiRunBest, L.capirun],
   ];
   statsBodyEl.innerHTML = `<div class="stats-grid">${cards.map(([v,l]) =>
     `<div class="stat-card"><div class="stat-value">${escapeHtml(String(v))}</div><div class="stat-label">${escapeHtml(l)}</div></div>`
