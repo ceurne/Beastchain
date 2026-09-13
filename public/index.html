@@ -8838,7 +8838,12 @@ checkForInviteLink();
     if(audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     if(!bgmGain.node){
       bgmGain.node = audioCtx.createGain();
-      bgmGain.node.gain.value = 0.35;
+      // Het bestand zelf bakt al een zachte mix in (losse noot-volumes rond
+      // 0.12-0.14, dus al duidelijk zachter dan de effecten); een extra
+      // GainNode-demping van 0.35 bovenop maakte het per ongeluk zo goed als
+      // onhoorbaar. 1.0 laat de eigen, al zachte mix van het bestand gewoon
+      // staan zonder verdere onnodige demping.
+      bgmGain.node.gain.value = 1.0;
       bgmGain.node.connect(audioCtx.destination);
     }
     const src = audioCtx.createBufferSource();
