@@ -1060,6 +1060,7 @@
   <div id="capiRunModal" class="modal-overlay" style="display:none;">
     <div class="capirun-card">
       <button class="lightbox-close" id="capiRunCloseBtn" style="position:absolute;top:10px;right:10px;z-index:20;">×</button>
+      <button class="lightbox-close" id="capiRunMuteBtn" style="position:absolute;top:10px;left:10px;z-index:20;font-size:12px;">🔊</button>
       <div class="capirun-stage" id="capiRunStage">
         <div class="capirun-sky-wrap" id="capiRunSkyWrap">
           <div class="capirun-sky-layer" id="capiRunSky1" style="background-image:url('game-assets/capirun_sky_meadow.jpg'); opacity:1;"></div>
@@ -8677,6 +8678,7 @@ checkForInviteLink();
   const modal = document.getElementById('capiRunModal');
   const openBtn = document.getElementById('capiRunOpenBtn');
   const closeBtn = document.getElementById('capiRunCloseBtn');
+  const muteBtn = document.getElementById('capiRunMuteBtn');
   const creditsBtn = document.getElementById('capiRunCreditsBtn');
   const creditsPop = document.getElementById('capiRunCreditsPop');
   const skyWrapEl = document.getElementById('capiRunSkyWrap');
@@ -8782,6 +8784,31 @@ checkForInviteLink();
   // het openen van CapiRun, ruim voordat er ook maar één obstakel spawnt)
   // lost dit op zonder de service worker zelf te hoeven aanpassen.
   let assetsPreloaded = false;
+  // Korte, zelf gesynthetiseerde geluidseffecten (geen opnames -- gewoon
+  // gegenereerde tonen, vandaar ook geen losse credits/bronvermelding nodig).
+  const SFX_FILES = {
+    jump: 'capirun_sfx_jump.wav',
+    hit: 'capirun_sfx_hit.wav',
+    gameover: 'capirun_sfx_gameover.wav',
+    bonus: 'capirun_sfx_bonus.wav',
+    newbest: 'capirun_sfx_newbest.wav'
+  };
+  const sfxElements = {};
+  const SOUND_KEY = 'beastchain_capirun_sound';
+  let soundEnabled = true;
+  try{ soundEnabled = localStorage.getItem(SOUND_KEY) !== '0'; }catch(e){}
+  function updateMuteBtn(){ muteBtn.textContent = soundEnabled ? '🔊' : '🔇'; }
+  // Elk geluid opnieuw vanaf het begin afspelen i.p.v. een nieuw Audio()-object
+  // te maken per keer -- dat voorkomt onnodig veel losse netwerkverzoeken bij
+  // snel achter elkaar springen, en werkt prima omdat deze effecten kort en
+  // niet overlappend van aard zijn (op de sprong-boop na speelt er nooit
+  // hetzelfde geluid twee keer tegelijk).
+  function playSfx(key){
+    if(!soundEnabled) return;
+    const el = sfxElements[key];
+    if(!el) return;
+    try{ el.currentTime = 0; el.play().catch(() => {}); }catch(e){}
+  }
   function preloadCapiRunAssets(){
     if(assetsPreloaded) return;
     assetsPreloaded = true;
@@ -8790,6 +8817,11 @@ checkForInviteLink();
     BIOMES.forEach(b => { files.add(b.sky); files.add(b.ground); b.animals.forEach(d => files.add(d.file)); });
     files.add(BUTTERFLY.file);
     files.forEach(f => { const img = new Image(); img.src = 'game-assets/' + f; });
+    for(const [key, file] of Object.entries(SFX_FILES)){
+      const audio = new Audio('game-assets/' + file);
+      audio.preload = 'auto';
+      sfxElements[key] = audio;
+    }
   }
   let currentBiomeIndex = -1; // -1 dwingt de allereerste updateBiome() om altijd te wisselen
   let biomeTransitionTimer = null; // lopende rolwissel-timeout van een schuif-overgang, zie updateBiome()
@@ -8983,6 +9015,7 @@ checkForInviteLink();
     if(onGround){
       vy = JUMP_VELOCITY;
       onGround = false;
+      playSfx('jump');
     }
   }
 
@@ -9138,6 +9171,7 @@ checkForInviteLink();
           score += ob.bonusScore;
           ob.el.remove();
           obstacles.splice(i,1);
+          playSfx('bonus');
         }
         continue;
       }
@@ -9154,6 +9188,7 @@ checkForInviteLink();
       const forgiveness = Math.max(14, ob.height * 0.4);
       const overlapY = y < ob.height - forgiveness;
       if(movedThrough && overlapY){
+        playSfx('hit');
         endGame();
         return;
       }
@@ -9189,9 +9224,11 @@ checkForInviteLink();
       void gameOverScoreEl.offsetWidth;
       gameOverScoreEl.classList.add('is-newbest');
       spawnConfetti();
+      playSfx('newbest');
     } else {
       gameOverScoreEl.classList.remove('is-newbest');
       gameOverSubEl.textContent = uiLang === 'nl' ? 'Tik op springen om opnieuw te proberen' : 'Tap jump to try again';
+      playSfx('gameover');
     }
     gameOverEl.style.display = 'flex';
   }
@@ -9219,6 +9256,12 @@ checkForInviteLink();
   openBtn.addEventListener('click', openCapiRun);
   closeBtn.addEventListener('click', closeCapiRun);
   modal.addEventListener('click', (e) => { if(e.target === modal) closeCapiRun(); });
+  updateMuteBtn();
+  muteBtn.addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    try{ localStorage.setItem(SOUND_KEY, soundEnabled ? '1' : '0'); }catch(e){}
+    updateMuteBtn();
+  });
   // Bronvermelding staat standaard verborgen achter dit kleine, lichte
   // knopje -- wie het niet zoekt, ziet het niet, maar de credits zijn er
   // gewoon voor wie er wel naar kijkt.
