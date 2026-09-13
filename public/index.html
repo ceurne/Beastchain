@@ -8793,21 +8793,30 @@ checkForInviteLink();
     bonus: 'capirun_sfx_bonus.wav',
     newbest: 'capirun_sfx_newbest.wav'
   };
-  const sfxElements = {};
   const SOUND_KEY = 'beastchain_capirun_sound';
   let soundEnabled = true;
   try{ soundEnabled = localStorage.getItem(SOUND_KEY) !== '0'; }catch(e){}
   function updateMuteBtn(){ muteBtn.textContent = soundEnabled ? '🔊' : '🔇'; }
-  // Elk geluid opnieuw vanaf het begin afspelen i.p.v. een nieuw Audio()-object
-  // te maken per keer -- dat voorkomt onnodig veel losse netwerkverzoeken bij
-  // snel achter elkaar springen, en werkt prima omdat deze effecten kort en
-  // niet overlappend van aard zijn (op de sprong-boop na speelt er nooit
-  // hetzelfde geluid twee keer tegelijk).
+  // Web Audio API i.p.v. losse <audio>-elementen: een <audio>.play() heeft
+  // op veel toestellen (vooral mobiel) een merkbare opstart-vertraging bij
+  // ELKE aanroep, wat een sprong-geluidje net dat beetje te laat liet klinken
+  // t.o.v. de tik zelf. Met vooraf gedecodeerde AudioBuffers is het afspelen
+  // zelf vrijwel vertragingsloos (alleen het eenmalig decoderen bij het laden
+  // kost tijd, niet elke afzonderlijke keer dat het geluid klinkt).
+  let audioCtx = null;
+  const sfxBuffers = {};
   function playSfx(key){
-    if(!soundEnabled) return;
-    const el = sfxElements[key];
-    if(!el) return;
-    try{ el.currentTime = 0; el.play().catch(() => {}); }catch(e){}
+    if(!soundEnabled || !audioCtx) return;
+    const buf = sfxBuffers[key];
+    if(!buf) return;
+    // Sommige mobiele browsers zetten de AudioContext na een tijdje op
+    // "suspended" (bijv. na het even op de achtergrond zetten van het
+    // tabblad) -- zonder deze resume zou het geluid dan stilletjes wegvallen.
+    if(audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+    src.start(0);
   }
   function preloadCapiRunAssets(){
     if(assetsPreloaded) return;
@@ -8817,10 +8826,17 @@ checkForInviteLink();
     BIOMES.forEach(b => { files.add(b.sky); files.add(b.ground); b.animals.forEach(d => files.add(d.file)); });
     files.add(BUTTERFLY.file);
     files.forEach(f => { const img = new Image(); img.src = 'game-assets/' + f; });
-    for(const [key, file] of Object.entries(SFX_FILES)){
-      const audio = new Audio('game-assets/' + file);
-      audio.preload = 'auto';
-      sfxElements[key] = audio;
+    if(!audioCtx){
+      try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ audioCtx = null; }
+    }
+    if(audioCtx){
+      for(const [key, file] of Object.entries(SFX_FILES)){
+        fetch('game-assets/' + file)
+          .then(res => res.arrayBuffer())
+          .then(data => audioCtx.decodeAudioData(data))
+          .then(buf => { sfxBuffers[key] = buf; })
+          .catch(() => {}); // ontbrekend/niet te decoderen geluid mag de rest van het spel nooit blokkeren
+      }
     }
   }
   let currentBiomeIndex = -1; // -1 dwingt de allereerste updateBiome() om altijd te wisselen
