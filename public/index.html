@@ -194,6 +194,13 @@
     margin:-2px 0 8px; padding:9px 12px; background: var(--paper); border-radius:8px;
     font-family:'Lora', serif; font-style:italic; font-size:10.5px; color: var(--ink);
   }
+  .stamp-animal-chips{
+    display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; font-style:normal;
+  }
+  .stamp-animal-chip{
+    font-family:'DM Sans', sans-serif; font-size:10px; color: var(--ink);
+    background: var(--card); border:1px solid var(--border); border-radius:20px; padding:2px 9px;
+  }
 
   .stats-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .stat-card{ background: var(--paper); border-radius:10px; padding:12px; text-align:center; }
@@ -2140,9 +2147,36 @@ function renderGlobalAchievements(){
       const div = document.createElement('div');
       div.className = 'stamp-expand';
       div.textContent = desc;
+      const names = namesInCategory(cat);
+      if(names.length){
+        const chips = document.createElement('div');
+        chips.className = 'stamp-animal-chips';
+        chips.innerHTML = names.map(n => `<span class="stamp-animal-chip">${escapeHtml(n)}</span>`).join('');
+        div.appendChild(chips);
+      }
       row.insertAdjacentElement('afterend', div);
     });
   });
+}
+
+// Welke dieren (van de speler zelf, over alle gespeelde potjes heen) vallen
+// er binnen een gegeven achievement-categorie -- zowel de 6 diersoort-
+// klassen (zoogdier/vogel/...) als de thematische categorieën (huisdier,
+// woestijn, nachtdier, ...). Gebruikt bewust de vaste ANIMAL_MAP_NL/EN
+// (niet de wisselbare animalByLower) omdat uniqueAnimals namen uit beide
+// talen door elkaar kan bevatten, afhankelijk van in welke taal elk potje
+// destijds gespeeld werd.
+function namesInCategory(catId){
+  const s = loadStats();
+  const names = [];
+  for(const lname of (s.uniqueAnimals || [])){
+    const rec = ANIMAL_MAP_NL.get(lname) || ANIMAL_MAP_EN.get(lname);
+    if(!rec) continue;
+    const cats = [CLASS_NAMES[rec.gen]];
+    THEMATIC_KEYS.forEach((k,i) => { if(rec.mask & (1<<i)) cats.push(k); });
+    if(cats.includes(catId)) names.push(rec.name);
+  }
+  return names.sort((a,b) => a.localeCompare(b, uiLang));
 }
 
 function computePlayerCategoryCounts(playerKey){
