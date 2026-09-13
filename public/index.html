@@ -8705,6 +8705,29 @@ checkForInviteLink();
   // Elke BIOME_SCORE_STEP punten schuift het spel door naar de volgende
   // omgeving (en dus ook andere dieren-obstakels), daarna weer van voren af aan.
   const BIOME_SCORE_STEP = 700;
+  // Geen van deze plaatjes staat in de service-worker app-shell-cache (dat
+  // zijn alleen index.html/manifest/icons) -- zonder dit warm-laden haalt de
+  // browser een obstakel- of biome-plaatje pas op zodra het voor het eerst
+  // écht nodig is. Voor een net begonnen biome (nieuwe dieren-obstakels én
+  // een nieuwe lucht/grond-afbeelding) gaf dat twee zichtbare problemen: een
+  // obstakel "poft" in één keer voluit op zodra de download eindelijk klaar
+  // is (de opacity-fade is dan allang voorbij, die duurt maar .2s), en een
+  // nieuwe achtergrondafbeelding die nog gedownload moet worden hapert de
+  // main thread even -- de dt-clamp in loop() verbergt die hapering als een
+  // korte "sprong vooruit", wat aanvoelt als een snelheidswissel precies op
+  // het moment dat de omgeving verandert. Eén keer alles vooraf inladen (bij
+  // het openen van CapiRun, ruim voordat er ook maar één obstakel spawnt)
+  // lost dit op zonder de service worker zelf te hoeven aanpassen.
+  let assetsPreloaded = false;
+  function preloadCapiRunAssets(){
+    if(assetsPreloaded) return;
+    assetsPreloaded = true;
+    const files = new Set();
+    ROCKS.forEach(d => files.add(d.file));
+    BIOMES.forEach(b => { files.add(b.sky); files.add(b.ground); b.animals.forEach(d => files.add(d.file)); });
+    files.add(BUTTERFLY.file);
+    files.forEach(f => { const img = new Image(); img.src = 'game-assets/' + f; });
+  }
   let currentBiomeIndex = -1; // -1 dwingt de allereerste updateBiome() om altijd te wisselen
   let biomeTransitionTimer = null; // lopende rolwissel-timeout van een schuif-overgang, zie updateBiome()
   // De vlinder komt 1x per biome, maar niet meer altijd als allereerste
@@ -8847,6 +8870,7 @@ checkForInviteLink();
 
   function openCapiRun(){
     modal.style.display = 'flex';
+    preloadCapiRunAssets();
     stageWidthPx = stage.getBoundingClientRect().width || 360;
     resetGame();
     bestEl.textContent = String(best).padStart(5,'0');
