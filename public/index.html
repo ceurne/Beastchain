@@ -327,14 +327,25 @@
   @keyframes ribbonOverlayHold{ from{opacity:1; pointer-events:auto;} to{opacity:1; pointer-events:auto;} }
   @keyframes ribbonOverlayOut{ from{opacity:1;} to{opacity:0; pointer-events:none;} }
   .achievement-ribbon{
-    position:fixed; top:calc(env(safe-area-inset-top, 0px) + 56px); left:50%; transform:translateX(-50%) scale(.85);
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) scale(.85); z-index:1;
     width:88%; max-width:340px; filter:drop-shadow(0 6px 12px rgba(0,0,0,.4));
     animation: ribbonPopIn .4s cubic-bezier(.2,.9,.3,1.3) forwards;
   }
-  @keyframes ribbonPopIn{ from{transform:translateX(-50%) scale(.6); opacity:0;} to{transform:translateX(-50%) scale(1); opacity:1;} }
+  @keyframes ribbonPopIn{ from{transform:translate(-50%,-50%) scale(.6); opacity:0;} to{transform:translate(-50%,-50%) scale(1); opacity:1;} }
   .achievement-ribbon svg{ width:100%; display:block; }
   .achievement-ribbon .rib-title{ font-family:'Fraunces', serif; font-weight:700; }
   .achievement-ribbon .rib-sub{ font-family:'DM Sans', sans-serif; font-weight:700; letter-spacing:2px; }
+
+  .fx-confetti{ position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:2; }
+  .fx-confetti span{
+    position:absolute; top:50%; left:50%; border-radius:1px; opacity:0;
+    animation: fxConfettiBurst var(--dur) cubic-bezier(.15,.65,.25,1) var(--delay) forwards;
+  }
+  @keyframes fxConfettiBurst{
+    0%   { transform:translate(-50%,-50%) translate(var(--ox), var(--oy)) rotate(0deg) scale(.35); opacity:1; }
+    20%  { transform:translate(-50%,-50%) translate(var(--bx), var(--by)) rotate(var(--rot1)) scale(1); opacity:1; }
+    100% { transform:translate(-50%,-50%) translate(var(--fx), var(--fy)) rotate(var(--rot2)) scale(1); opacity:1; }
+  }
 
   .reveal-panel{
     background: var(--card); border-radius:12px;
@@ -401,6 +412,7 @@
   .gameover-border{ position:absolute; top:8px; left:8px; right:8px; bottom:8px; border:1px dashed var(--border); border-radius:5px; pointer-events:none; }
   .gameover-kicker{ font-family:'Special Elite', monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase; color: var(--rust); margin-bottom:10px; }
   .gameover-logo{ margin-bottom:8px; }
+  .gameover-logo .spin-group{ transform-box: fill-box; transform-origin: 50% 50%; animation: spinLogo 1.6s linear infinite; }
   .gameover-title{ font-family:'Fraunces', serif; font-weight:700; font-size:20px; color: var(--ink); margin-bottom:4px; }
   .gameover-subtitle{ font-family:'Lora', serif; font-style:italic; font-size:11.5px; color: var(--ink-dim); margin:4px 0 16px; line-height:1.4; }
   .gameover-stats{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:18px; }
@@ -837,15 +849,17 @@
     <div class="gameover-card">
       <div class="gameover-border"></div>
       <div class="gameover-kicker" id="gameoverKicker">EXPEDITIE VOLTOOID</div>
-      <svg class="gameover-logo" width="32" height="32" viewBox="-90 -90 180 180">
-        <use href="#lg-paw" fill="#9c4a1c" transform="rotate(0) translate(0,-60) rotate(90)"/>
-        <use href="#lg-bird" stroke="#9c4a1c" transform="rotate(45) translate(0,-60) rotate(90)"/>
-        <use href="#lg-hoof" fill="#9c4a1c" transform="rotate(90) translate(0,-60) rotate(90)"/>
-        <use href="#lg-bear" fill="#9c4a1c" transform="rotate(135) translate(0,-60) rotate(90)"/>
-        <use href="#lg-webbed" fill="#9c4a1c" transform="rotate(180) translate(0,-60) rotate(90)"/>
-        <use href="#lg-hare" fill="#9c4a1c" opacity=".8" transform="rotate(225) translate(0,-60) rotate(90)"/>
-        <use href="#lg-elephant" fill="#9c4a1c" transform="rotate(270) translate(0,-60) rotate(90)"/>
-        <use href="#lg-raccoon" fill="#9c4a1c" transform="rotate(315) translate(0,-60) rotate(90)"/>
+      <svg class="gameover-logo" width="56" height="56" viewBox="-90 -90 180 180">
+        <g class="spin-group">
+          <use href="#lg-paw" fill="#9c4a1c" transform="rotate(0) translate(0,-60) rotate(90)"/>
+          <use href="#lg-bird" stroke="#9c4a1c" transform="rotate(45) translate(0,-60) rotate(90)"/>
+          <use href="#lg-hoof" fill="#9c4a1c" transform="rotate(90) translate(0,-60) rotate(90)"/>
+          <use href="#lg-bear" fill="#9c4a1c" transform="rotate(135) translate(0,-60) rotate(90)"/>
+          <use href="#lg-webbed" fill="#9c4a1c" transform="rotate(180) translate(0,-60) rotate(90)"/>
+          <use href="#lg-hare" fill="#9c4a1c" opacity=".8" transform="rotate(225) translate(0,-60) rotate(90)"/>
+          <use href="#lg-elephant" fill="#9c4a1c" transform="rotate(270) translate(0,-60) rotate(90)"/>
+          <use href="#lg-raccoon" fill="#9c4a1c" transform="rotate(315) translate(0,-60) rotate(90)"/>
+        </g>
       </svg>
       <div class="gameover-title" id="gameoverTitle">Jij wint!</div>
       <div class="gameover-subtitle" id="gameoverSubtitle">Wat een reis.</div>
@@ -855,6 +869,7 @@
         <button class="gameover-btn-solid" id="gameoverRestartBtn">Opnieuw</button>
       </div>
     </div>
+    <div class="fx-confetti" id="gameoverConfettiEl"></div>
   </div>
 
   <div id="mapModal" class="modal-overlay" style="display:none;">
@@ -1900,6 +1915,7 @@ const gameoverKickerEl = document.getElementById('gameoverKicker');
 const gameoverTitleEl = document.getElementById('gameoverTitle');
 const gameoverSubtitleEl = document.getElementById('gameoverSubtitle');
 const gameoverStatsEl = document.getElementById('gameoverStats');
+const gameoverConfettiEl = document.getElementById('gameoverConfettiEl');
 const gameoverViewChainBtn = document.getElementById('gameoverViewChainBtn');
 const gameoverRestartBtn = document.getElementById('gameoverRestartBtn');
 // ---------- local pass-and-play (2 players, 1 device) ----------
@@ -2016,10 +2032,86 @@ function addSkipLog(msg){
   row.textContent = msg;
   appendToScreen(row);
 }
-function addError(msg){ const row=document.createElement('div'); row.className='log-error'; row.textContent=msg; appendToScreen(row); }
+function addError(msg){ const row=document.createElement('div'); row.className='log-error'; row.textContent=msg; appendToScreen(row); playGameSfx('invalid'); }
 function addWin(msg){ const row=document.createElement('div'); row.className='log-win'; row.textContent=msg; appendToScreen(row); }
 
 let suppressFx = false;
+
+// ---------- Hoofdspel geluidseffecten ----------
+// Zelfde aanpak als CapiRun: vooraf gedecodeerde AudioBuffers via de Web
+// Audio API i.p.v. <audio>-elementen, om opstart-vertraging bij het
+// afspelen te voorkomen.
+const GAME_SFX_FILES = {
+  valid: 'game-assets/sfx_valid.wav',
+  invalid: 'game-assets/sfx_invalid.wav',
+  yourturn: 'game-assets/sfx_yourturn.wav',
+  won: 'game-assets/sfx_won.wav',
+  lost: 'game-assets/sfx_lost.wav',
+  achievement: 'game-assets/sfx_achievement.wav'
+};
+let gameAudioCtx = null;
+const gameSfxBuffers = {};
+let gameAudioPreloaded = false;
+function preloadGameAudio(){
+  if(gameAudioPreloaded) return;
+  gameAudioPreloaded = true;
+  try{ gameAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+  catch(e){ return; }
+  Object.entries(GAME_SFX_FILES).forEach(([key, path]) => {
+    fetch(path).then(r => r.arrayBuffer()).then(data => gameAudioCtx.decodeAudioData(data)).then(buf => { gameSfxBuffers[key] = buf; }).catch(()=>{});
+  });
+}
+function playGameSfx(key){
+  if(!gameAudioCtx) preloadGameAudio();
+  if(!gameAudioCtx) return;
+  if(gameAudioCtx.state === 'suspended') gameAudioCtx.resume();
+  const buf = gameSfxBuffers[key];
+  if(!buf) return;
+  const src = gameAudioCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(gameAudioCtx.destination);
+  src.start(0);
+}
+
+// ---------- Gedeelde confetti-burst ----------
+// Herbruikt voor zowel de prestatie-melding als het eindscherm: knalt
+// vanuit het midden van de container alle kanten op en valt daarna, met
+// een eindpositie die altijd ver genoeg buiten beeld ligt zodat elk
+// snippertje het scherm ook echt weer verlaat.
+const FX_CONFETTI_COLORS = ['#e8c14a','#cd7f32','#c94f3d','#3d8f7a','#4a7fc9','#e0637f','#f4ecd8','#8a5fc9'];
+function spawnConfettiBurst(container, count){
+  for(let i = 0; i < count; i++){
+    const el = document.createElement('span');
+    const w = 5 + Math.random()*5;
+    const h = w * (1.6 + Math.random()*0.8);
+    const ox = (Math.random()*2-1) * 150;
+    const oy = (Math.random()*2-1) * 190;
+    const angle = Math.random() * Math.PI * 2;
+    const burstDist = 80 + Math.random()*380;
+    const bx = ox + Math.cos(angle)*burstDist;
+    const by = oy + Math.sin(angle)*burstDist;
+    const swayX = (Math.random()*2-1) * 60;
+    const fx = bx + swayX;
+    const fy = 480 + Math.random()*450;
+    const rot1 = (Math.random()*2-1) * 160;
+    const rot2 = rot1 + (Math.random()*2-1) * 460;
+    el.style.width = w.toFixed(1)+'px';
+    el.style.height = h.toFixed(1)+'px';
+    el.style.background = FX_CONFETTI_COLORS[Math.floor(Math.random()*FX_CONFETTI_COLORS.length)];
+    el.style.setProperty('--ox', ox.toFixed(0)+'px');
+    el.style.setProperty('--oy', oy.toFixed(0)+'px');
+    el.style.setProperty('--bx', bx.toFixed(0)+'px');
+    el.style.setProperty('--by', by.toFixed(0)+'px');
+    el.style.setProperty('--fx', fx.toFixed(0)+'px');
+    el.style.setProperty('--fy', fy.toFixed(0)+'px');
+    el.style.setProperty('--rot1', rot1.toFixed(0)+'deg');
+    el.style.setProperty('--rot2', rot2.toFixed(0)+'deg');
+    el.style.setProperty('--dur', (2.6 + Math.random()*1.3).toFixed(2)+'s');
+    el.style.setProperty('--delay', (Math.random()*0.2).toFixed(2)+'s');
+    el.addEventListener('animationend', () => el.remove());
+    container.appendChild(el);
+  }
+}
 
 function awardAchievement(playerKey, catId, tier, entryName){
   const key = playerKey+'-'+catId+'-'+tier;
@@ -2041,7 +2133,7 @@ function awardAchievement(playerKey, catId, tier, entryName){
   // heeft behaald, niet bij de tegenstander wanneer diens winst via
   // synchronisatie binnenkomt.
   if(suppressFx || !isLocalPlayer(playerKey)) return;
-  showAchievementRibbon(tier, def[tier].label, def.name);
+  showAchievementRibbon(tier, catId, def[tier].label, def.name);
 }
 
 const MEDAL_TIER_COLORS = {
@@ -2049,32 +2141,60 @@ const MEDAL_TIER_COLORS = {
   silver: {main:'#b8bfc7', dark:'#8a929c'},
   gold: {main:'#e8c14a', dark:'#b8942e'}
 };
-function showAchievementRibbon(tier, titleText, subText){
-  const overlay = document.createElement('div');
-  overlay.className = 'achievement-ribbon-overlay';
-  const ribbon = document.createElement('div');
-  ribbon.className = 'achievement-ribbon';
-  const c = MEDAL_TIER_COLORS[tier] || MEDAL_TIER_COLORS.bronze;
-  const medalNative = `
-    <g transform="translate(168,50) scale(0.85)">
-      <path d="M-5 -2 L-10 10 L-5 8 L-2 12 L2 0 Z" fill="${c.dark}"/>
-      <path d="M5 -2 L10 10 L5 8 L2 12 L-2 0 Z" fill="${c.dark}"/>
+function shadeColor(hex, factor){
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n>>16)&255, g=(n>>8)&255, b=n&255;
+  r = Math.round(r*factor); g = Math.round(g*factor); b = Math.round(b*factor);
+  return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+}
+// Schat de renderbreedte van de titel in en verklein het lettertype
+// stapsgewijs zodat een lange titel niet over de medailles heen loopt.
+function fitTitleFontSize(text, maxWidth, baseSize){
+  const estCharW = baseSize * 0.52;
+  const estWidth = text.length * estCharW;
+  if(estWidth <= maxWidth) return baseSize;
+  return Math.max(15, Math.round(baseSize * maxWidth / estWidth));
+}
+function medalGroupSVG(x, c){
+  return `
+    <g transform="translate(${x},55) scale(1.1)">
+      <path d="M-6 2 L-12 18 L-6 14.5 L-3 19.5 L0 4 Z" fill="${c.dark}"/>
+      <path d="M6 2 L12 18 L6 14.5 L3 19.5 L0 4 Z" fill="${c.dark}"/>
+      <circle cx="0" cy="-2" r="13" fill="none" stroke="#faf5e6" stroke-width="1.4" opacity="0.9"/>
       <circle cx="0" cy="-2" r="11" fill="${c.main}"/>
       <circle cx="0" cy="-2" r="11" fill="none" stroke="${c.dark}" stroke-width="1.5"/>
       <path d="M0 -8l1.8 3.6 4 .58-2.9 2.82.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.82 4-.58z" fill="${c.dark}"/>
     </g>`;
+}
+function showAchievementRibbon(tier, catId, titleText, subText){
+  playGameSfx('achievement');
+  const overlay = document.createElement('div');
+  overlay.className = 'achievement-ribbon-overlay';
+  const ribbon = document.createElement('div');
+  ribbon.className = 'achievement-ribbon';
+  const medalC = MEDAL_TIER_COLORS[tier] || MEDAL_TIER_COLORS.bronze;
+  const catStyle = ACHV_CAT_STYLE[catId] || {color:'#9c4a1c'};
+  const body = catStyle.color;
+  const tailInner = shadeColor(body, 0.72);
+  const leftX = 172, rightX = 468;
+  const titleSize = fitTitleFontSize(titleText, 250, 24);
   ribbon.innerHTML = `<svg viewBox="0 0 640 110" xmlns="http://www.w3.org/2000/svg">
-    <polygon points="0,30 130,30 130,80 0,80 25,55" fill="#9c4a1c"/>
-    <polygon points="45,30 130,30 130,80 45,80 70,55" fill="#6b3010"/>
-    <polygon points="640,30 510,30 510,80 640,80 615,55" fill="#9c4a1c"/>
-    <polygon points="595,30 510,30 510,80 595,80 570,55" fill="#6b3010"/>
-    <rect x="100" y="20" width="440" height="70" rx="6" fill="#9c4a1c"/>
-    ${medalNative}
-    <text x="340" y="50" text-anchor="middle" class="rib-title" font-size="26" fill="#faf5e6">${escapeHtml(titleText)}</text>
+    <polygon points="0,30 130,30 130,80 0,80 25,55" fill="${body}"/>
+    <polygon points="45,30 130,30 130,80 45,80 70,55" fill="${tailInner}"/>
+    <polygon points="640,30 510,30 510,80 640,80 615,55" fill="${body}"/>
+    <polygon points="595,30 510,30 510,80 595,80 570,55" fill="${tailInner}"/>
+    <rect x="100" y="20" width="440" height="70" rx="6" fill="${body}"/>
+    ${medalGroupSVG(leftX, medalC)}
+    ${medalGroupSVG(rightX, medalC)}
+    <text x="320" y="50" text-anchor="middle" class="rib-title" font-size="${titleSize}" fill="#faf5e6">${escapeHtml(titleText)}</text>
     <text x="320" y="72" text-anchor="middle" class="rib-sub" font-size="12" fill="#f4ecd8" opacity="0.9">${escapeHtml(subText.toUpperCase())}</text>
   </svg>`;
   overlay.appendChild(ribbon);
+  const confettiEl = document.createElement('div');
+  confettiEl.className = 'fx-confetti';
+  overlay.appendChild(confettiEl);
   document.body.appendChild(overlay);
+  spawnConfettiBurst(confettiEl, 220);
 
   let removed = false;
   function dismiss(){
@@ -7014,6 +7134,7 @@ function hideHandoffOverlay(){
   handoffModalEl.style.display = 'none';
   inputEl.disabled = false; sendBtn.disabled = false;
   inputEl.focus();
+  playGameSfx('yourturn');
 }
 handoffReadyBtn.addEventListener('click', hideHandoffOverlay);
 
@@ -7080,6 +7201,7 @@ function showGameOverModal(){
       <div class="gameover-stat"><div class="gameover-stat-value">${newAnimals}</div><div class="gameover-stat-label">${L.nieuw}</div></div>
     `;
     gameOverModalEl.style.display = 'flex';
+    if(!isDraw) celebrateGameOver(true);
     return;
   }
   const myKey = mode === 'pvp' ? myPlayerNum : 'me';
@@ -7107,8 +7229,21 @@ function showGameOverModal(){
     <div class="gameover-stat"><div class="gameover-stat-value">${newAnimals}</div><div class="gameover-stat-label">${L.nieuw}</div></div>
   `;
   gameOverModalEl.style.display = 'flex';
+  if(!isDraw) celebrateGameOver(won);
 }
 function hideGameOverModal(){ gameOverModalEl.style.display = 'none'; }
+// Speelt het overwinnings-/verliesgeluid en (bij winst) de grote confetti-
+// burst -- overgeslagen tijdens een stille status-restore (suppressFx),
+// zodat het heropenen van een al afgelopen potje niet opnieuw feest viert.
+function celebrateGameOver(won){
+  if(suppressFx) return;
+  if(won){
+    playGameSfx('won');
+    spawnConfettiBurst(gameoverConfettiEl, 480);
+  } else {
+    playGameSfx('lost');
+  }
+}
 
 gameoverViewChainBtn.addEventListener('click', hideGameOverModal);
 gameoverRestartBtn.addEventListener('click', () => {
@@ -7188,6 +7323,7 @@ function cpuMove(requiredLetter){
         const p = animalByLower.get(freeName.toLowerCase());
         commitEntry({name:p.name, gen:p.gen, by:'cpu', freeMove:true});
         resetTurnTools();
+        playGameSfx('yourturn');
         return;
       }
     }
@@ -7247,6 +7383,7 @@ function cpuMove(requiredLetter){
   const p = animalByLower.get(pickName.toLowerCase());
   commitEntry({name:p.name, gen:p.gen, by:'cpu'});
   resetTurnTools(); // it's the human's turn again
+  playGameSfx('yourturn');
 }
 
 function handleSubmit(){
@@ -7284,6 +7421,7 @@ function handleSubmit(){
   if(hintPendingCost){ entry.hintCost = true; hintPendingCost = false; }
   if(autoCorrected) addSkipLog((gameLang==='nl' ? 'Typefoutje verbeterd: "' : 'Typo corrected: "') + raw + '" → "' + official.name + '"');
   commitEntry(entry);
+  playGameSfx('valid');
   inputEl.value = '';
   hintBoxEl.style.display = 'none';
   hintBoxEl.classList.remove('joker-active');
@@ -7514,7 +7652,7 @@ function applyRemoteState(parsed){
   updateTurnBanner();
   refreshOutCode();
   saveSession();
-  if(becameMyTurn && !over) notifyMyTurn();
+  if(becameMyTurn && !over){ notifyMyTurn(); playGameSfx('yourturn'); }
 }
 function refreshOutCode(){ outCodeEl.value = encodeState(); }
 
@@ -7649,7 +7787,15 @@ function openGame(roomCode){
   }
   suppressFx = false;
   resetTurnTools();
-  if(s.over){ endWinner = s.endWinner || 0; endGameUI(s.resultMsg || (gameLang==='nl' ? 'Spel afgelopen.' : 'Game over.')); }
+  if(s.over){
+    endWinner = s.endWinner || 0;
+    // Dit is een opgeslagen potje dat opnieuw geopend wordt (niet het live
+    // moment van winnen/verliezen) -- geluid en confetti hier onderdrukken,
+    // anders viert elke keer opnieuw openen van een oud potje weer feest.
+    suppressFx = true;
+    endGameUI(s.resultMsg || (gameLang==='nl' ? 'Spel afgelopen.' : 'Game over.'));
+    suppressFx = false;
+  }
   modePvpBtn.classList.add('active'); modeCpuBtn.classList.remove('active');
   lobbyEl.style.display = 'none';
   syncPanelEl.style.display = 'block';
@@ -7941,6 +8087,7 @@ loadCodeBtn.addEventListener('click', () => {
 });
 
 function switchToCpu(){
+  preloadGameAudio();
   mode = 'cpu'; myPlayerNum = null; stopSync();
   modeCpuBtn.classList.add('active'); modePvpBtn.classList.remove('active'); modeAchBtn.classList.remove('active');
   lobbyEl.style.display = 'none'; syncPanelEl.style.display = 'none'; achievementsTabEl.style.display = 'none';
@@ -8007,6 +8154,7 @@ function startNewCpuGame(){
 startCpuGameBtn.addEventListener('click', startNewCpuGame);
 
 function switchToPvp(){
+  preloadGameAudio();
   mode = 'pvp'; myPlayerNum = null; stopSync();
   modePvpBtn.classList.add('active'); modeCpuBtn.classList.remove('active'); modeAchBtn.classList.remove('active');
   gameAreaEl.style.display = 'none'; syncPanelEl.style.display = 'none'; achievementsTabEl.style.display = 'none'; cpuLobbyEl.style.display = 'none';
