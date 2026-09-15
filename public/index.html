@@ -533,7 +533,7 @@
   }
   .capirun-obstacle{
     position:absolute; image-rendering:pixelated; z-index:2; will-change: transform; backface-visibility: hidden;
-    opacity:0; transition: opacity .45s ease;
+    opacity:0; /* wordt elk frame door de game-loop bijgewerkt op basis van positie, geen CSS-transitie hier */
   }
   /* Stenen zijn van zichzelf warm oranje/terracotta -- op de zandkleurige
      woestijngrond (bijna dezelfde tint) vielen ze bijna weg. Elke omgeving
@@ -8897,6 +8897,12 @@ checkForInviteLink();
   let groundCells = []; // {el, biome, startX, endX|null}, van oud (links) naar nieuw (rechts)
   const groundCellPool = []; // herbruikbare <div>'s, voorkomt DOM-churn bij elke biome-wissel
 
+  // Afstand (in px) voorbij de rechterrand waar een obstakel spawnt en over
+  // faded naar volledig zichtbaar -- zie spawnObstacle() en de opacity-
+  // berekening in loop(). Groot genoeg om ook bij de hoogste spelsnelheid
+  // ruimschoots op tijd klaar te zijn.
+  const OBSTACLE_FADE_BUFFER = 60;
+
   // Stenen zijn overal bruikbaar (neutraal, geen dier), en zijn qua vorm
   // redelijk egaal gevuld -- het botsingsvak mag daarom de volledige
   // zichtbare breedte gebruiken.
@@ -9314,17 +9320,18 @@ checkForInviteLink();
     el.style.width = def.w + 'px';
     el.style.bottom = (GROUND_Y + (def.flyHeight || 0)) + 'px';
     el.style.left = '0px';
-    el.style.transform = `translateX(${stageWidthPx}px)`;
+    // Het obstakel start ruim voorbij de rechterrand (buiten beeld, want de
+    // stage knipt bij overflow:hidden) en de opacity loopt in diezelfde
+    // aanloopafstand al helemaal op naar 1 -- zie de opacity-berekening in
+    // loop(). Zo is een obstakel al volledig zichtbaar op het moment dat het
+    // de rand oversteekt, in plaats van nog halverwege het scherm te staan
+    // faden. Op = 0 hier is alleen het startpunt voor die berekening.
+    const startX = stageWidthPx + OBSTACLE_FADE_BUFFER;
+    el.style.transform = `translateX(${startX}px)`;
+    el.style.opacity = '0';
     obstaclesEl.appendChild(el);
-    // Zonder dit verscheen een obstakel in één keer op volle sterkte zodra
-    // het de rechterrand kruiste (overflow:hidden geeft daar een harde knip)
-    // -- dat voelde aan als abrupt opduiken i.p.v. duidelijk in beeld komen.
-    // De opacity gaat daarom pas na een geforceerde reflow naar 1, zodat de
-    // overgang ook echt animeert i.p.v. meteen als "1" gerenderd te worden.
-    void el.offsetWidth;
-    el.style.opacity = '1';
     const hitboxOffset = (def.w - def.hitboxW) / 2; // het smallere vak in het midden van de afbeelding houden
-    obstacles.push({ el, x: stageWidthPx, width: def.w, height: def.h, hitboxW: def.hitboxW, hitboxOffset,
+    obstacles.push({ el, x: startX, width: def.w, height: def.h, hitboxW: def.hitboxW, hitboxOffset,
       isBonus: !!def.isBonus, flyHeight: def.flyHeight || 0, bonusScore: def.bonusScore || 0 });
   }
 
@@ -9413,6 +9420,15 @@ checkForInviteLink();
       const prevX = ob.x;
       ob.x -= speed * dt;
       ob.el.style.transform = `translateX(${ob.x}px)`;
+      // Opacity gekoppeld aan positie (niet aan een vaste tijdsduur): loopt
+      // op van 0 bij de spawnpositie (net buiten beeld) naar 1 zodra het
+      // obstakel de zichtbare rechterrand bereikt. Zo is de fade altijd
+      // klaar VOORDAT er ook maar één pixel zichtbaar wordt, ongeacht de
+      // spelsnelheid -- een obstakel dat sneller aankomt legt de aanloop
+      // gewoon sneller af, maar staat nooit halverwege het scherm nog te
+      // faden.
+      const revealT = Math.min(1, Math.max(0, (stageWidthPx + OBSTACLE_FADE_BUFFER - ob.x) / OBSTACLE_FADE_BUFFER));
+      ob.el.style.opacity = String(revealT);
       if(ob.x + ob.width < 0){
         ob.el.remove();
         obstacles.splice(i,1);
