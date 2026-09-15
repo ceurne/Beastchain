@@ -8924,6 +8924,15 @@ checkForInviteLink();
   const GROUND_Y = 34; // px vanaf de onderkant van het speelveld
   const GRAVITY = 1250; // px/s^2 -- iets zachter, voor een vergevingsgezinder sprongboog
   const JUMP_VELOCITY = 420; // px/s, omhoog
+  // Een volledige sprong (omhoog + weer terug op de grond) duurt altijd
+  // 2 * JUMP_VELOCITY / GRAVITY, ongeacht de spelsnelheid -- dat is puur
+  // zwaartekracht, geen "speed". De kortst mogelijke tijd tussen twee losse
+  // obstakels mag daarom nooit onder die sprongtijd (plus wat reactietijd om
+  // 'm daarna weer te zien aankomen) zakken, anders is een schone landing
+  // vóór het volgende obstakel op hogere score gewoon niet meer haalbaar,
+  // hoe goed je ook speelt.
+  const JUMP_AIRTIME_MS = 2 * JUMP_VELOCITY / GRAVITY * 1000;
+  const MIN_OBSTACLE_GAP_MS = JUMP_AIRTIME_MS + 300;
   const CAPY_LEFT = 15; // % vanaf links
   const CAPY_WIDTH = 56, CAPY_HEIGHT = 68;
   // Elk sprite-beeldje is 28px breed (56px op 2x), maar de daadwerkelijk
@@ -9454,7 +9463,7 @@ checkForInviteLink();
     spawnTimer += dt * 1000;
     if(spawnTimer > nextSpawnAt){
       spawnTimer = 0;
-      nextSpawnAt = Math.max(500, 1000 - score*0.05) + Math.random()*500;
+      nextSpawnAt = Math.max(MIN_OBSTACLE_GAP_MS, 1000 - score*0.05) + Math.random()*500;
       spawnObstacle();
       // Na een tijdje spelen af en toe twee obstakels vlak na elkaar, voor
       // wat meer afwisseling zodra het spel al een tijdje bezig is. Dit is
@@ -9471,7 +9480,7 @@ checkForInviteLink();
         // elkaar dan de bedoeling was, precies rond het moment van landen.
         // De gewone cyclus wacht nu tot de bewuste tweede steen er is
         // geweest, plus wat extra reactietijd.
-        nextSpawnAt = Math.max(nextSpawnAt, pendingDoubleSpawnAt + 500);
+        nextSpawnAt = Math.max(nextSpawnAt, pendingDoubleSpawnAt + MIN_OBSTACLE_GAP_MS);
       }
     }
     if(pendingDoubleSpawnAt !== null){
