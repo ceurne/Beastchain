@@ -9417,6 +9417,15 @@ checkForInviteLink();
       // ongeacht hoe snel het spel op dat moment al is.
       if(score > 800 && Math.random() < 0.2){
         pendingDoubleSpawnAt = 1150 + Math.random()*200;
+        // Zonder dit liep de gewone spawn-cyclus gewoon door tijdens het
+        // wachten op deze bewuste tweede steen -- bij een hoge score kan
+        // nextSpawnAt korter zijn dan de 1150-1350ms hierboven, waardoor er
+        // ONGEPLAND een derde obstakel tussendoor (of zelfs vóór) de
+        // bedoelde tweede verscheen. Dat stapelde alles veel dichter op
+        // elkaar dan de bedoeling was, precies rond het moment van landen.
+        // De gewone cyclus wacht nu tot de bewuste tweede steen er is
+        // geweest, plus wat extra reactietijd.
+        nextSpawnAt = Math.max(nextSpawnAt, pendingDoubleSpawnAt + 500);
       }
     }
     if(pendingDoubleSpawnAt !== null){
