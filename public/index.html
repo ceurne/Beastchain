@@ -2321,16 +2321,21 @@ function renderGlobalAchievements(){
 // Welke dieren (van de speler zelf, over alle gespeelde potjes heen) vallen
 // er binnen een gegeven achievement-categorie -- zowel de 6 diersoort-
 // klassen (zoogdier/vogel/...) als de thematische categorieën (huisdier,
-// woestijn, nachtdier, ...). Gebruikt bewust de vaste ANIMAL_MAP_NL/EN
-// (niet de wisselbare animalByLower) omdat uniqueAnimals namen uit beide
-// talen door elkaar kan bevatten, afhankelijk van in welke taal elk potje
-// destijds gespeeld werd. Geeft {name, gen} terug (i.p.v. alleen de naam)
-// zodat een klik op een dier meteen de juiste foto kan opzoeken.
+// woestijn, nachtdier, ...). uniqueAnimals kan namen uit beide talen door
+// elkaar bevatten, afhankelijk van in welke taal elk potje destijds
+// gespeeld werd -- dat gaf een lijst met bijvoorbeeld zowel "Narwal" (nl)
+// als "Narwhal" (en) door elkaar, ongeacht de huidige interfacetaal. Zoekt
+// nu bewust alleen op in de vaste kaart van de HUIDIGE interfacetaal
+// (ANIMAL_MAP_NL/EN, niet de wisselbare animalByLower), zodat alleen
+// dieren verschijnen die ook echt in die taal gespeeld zijn. Geeft
+// {name, gen} terug (i.p.v. alleen de naam) zodat een klik op een dier
+// meteen de juiste foto kan opzoeken.
 function namesInCategory(catId){
   const s = loadStats();
   const animals = [];
+  const map = uiLang === 'en' ? ANIMAL_MAP_EN : ANIMAL_MAP_NL;
   for(const lname of (s.uniqueAnimals || [])){
-    const rec = ANIMAL_MAP_NL.get(lname) || ANIMAL_MAP_EN.get(lname);
+    const rec = map.get(lname);
     if(!rec) continue;
     const cats = [CLASS_NAMES[rec.gen]];
     THEMATIC_KEYS.forEach((k,i) => { if(rec.mask & (1<<i)) cats.push(k); });
