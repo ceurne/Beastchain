@@ -3671,6 +3671,15 @@ const UI_LANG_KEY = 'beastchain_ui_lang';
 const GAME_LANG_KEY = 'beastchain_game_lang';
 let uiLang = (function(){ try{ return localStorage.getItem(UI_LANG_KEY) || 'nl'; }catch(e){ return 'nl'; } })();
 let gameLang = (function(){ try{ return localStorage.getItem(GAME_LANG_KEY) || 'nl'; }catch(e){ return 'nl'; } })();
+// De speeltaal-keuzemenu's in de drie lobby's (pvp/lokaal/computer) stonden in
+// de HTML altijd vast op "Nederlands geselecteerd" -- ongeacht wat er
+// hierboven uit localStorage kwam. Daardoor startte een NIEUW potje steeds
+// weer in het Nederlands totdat je zelf opnieuw Engels aanvinkte, ook als je
+// dat de vorige keer al had ingesteld. Nu volgen ze meteen de opgeslagen
+// voorkeur.
+pvpGameLangSelect.value = gameLang;
+localGameLangSelect.value = gameLang;
+cpuGameLangSelect.value = gameLang;
 
 function applyGameLanguage(lang){
   gameLang = lang;
