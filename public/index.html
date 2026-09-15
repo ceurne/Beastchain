@@ -7916,6 +7916,19 @@ function startSync(topic){
 }
 function stopSync(){ if(syncTimer){ clearInterval(syncTimer); syncTimer = null; } syncTopic = null; }
 
+// Op met name iOS wordt een geopende PWA-tab vaak op de achtergrond
+// "bevroren" in plaats van helemaal afgesloten -- de setInterval(doPoll, 5000)
+// hierboven kan dan minutenlang niet afgaan, ook niet vlak nadat je 'm weer
+// opent (via de systeemmelding of gewoon door de app weer aan te tikken). Het
+// scherm toont dan nog de oude stand totdat die interval toevallig weer eens
+// afgaat. Door bij het weer zichtbaar/actief worden van de pagina meteen zelf
+// een poll te forceren, komt de zet van de ander altijd meteen door, in
+// plaats van pas na een onvoorspelbare wachttijd.
+function pollNowIfActive(){ if(mode === 'pvp' && syncTopic) doPoll(); }
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') pollNowIfActive(); });
+window.addEventListener('pageshow', pollNowIfActive);
+window.addEventListener('focus', pollNowIfActive);
+
 function updateTurnBanner(){
   const penIconSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><path d="M12.7 19a2 2 0 0 0 1.42-.59l6.15-6.17a6 6 0 0 0-8.49-8.49L5.6 9.9A2 2 0 0 0 5 11.33V18a1 1 0 0 0 1 1z"/><path d="M16 8 2 22"/><path d="M6.5 13.5 10 10M8.5 16.5 12 13" stroke-width="1"/></svg> ';
   if(mode === 'local'){
