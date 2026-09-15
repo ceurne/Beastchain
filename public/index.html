@@ -7884,7 +7884,12 @@ async function ntfyPublish(topic, stateStr){
 }
 async function ntfyPollBest(topic){
   let res;
-  try{ res = await fetch(SYNC_WORKER_BASE + '/sync-poll?room=' + encodeURIComponent(topic)); }
+  // knownLen laat de server zien hoeveel we hier al lokaal weten -- komt de
+  // KV-opslag daar (door vertraagde replicatie tussen edge-locaties) nog
+  // onder, dan weet de server dat het antwoord duidelijk verouderd is en kan
+  // hij zelf nog een paar keer kort opnieuw proberen voor hij antwoordt.
+  const knownLen = encodeState().length;
+  try{ res = await fetch(SYNC_WORKER_BASE + '/sync-poll?room=' + encodeURIComponent(topic) + '&knownLen=' + knownLen); }
   catch(e){ lastSyncFailDetail = 'netwerkfout: ' + (e && e.message || e); return undefined; }
   if(!res || !res.ok){ lastSyncFailDetail = 'HTTP ' + (res ? res.status : '?'); return undefined; }
   let data;
@@ -7941,7 +7946,18 @@ function stopSync(){ if(syncTimer){ clearInterval(syncTimer); syncTimer = null; 
 // afgaat. Door bij het weer zichtbaar/actief worden van de pagina meteen zelf
 // een poll te forceren, komt de zet van de ander altijd meteen door, in
 // plaats van pas na een onvoorspelbare wachttijd.
-function pollNowIfActive(){ if(mode === 'pvp' && syncTopic) doPoll(); }
+function pollNowIfActive(){
+  if(mode !== 'pvp' || !syncTopic) return;
+  doPoll();
+  // Eén enkele poll kan nog in het venster van Cloudflare KV's vertraagde
+  // replicatie tussen edge-locaties vallen (de server probeert dat zelf al
+  // kort op te vangen, maar een enkele hardnekkige vertraging kan dat
+  // overschrijden). Een paar extra pogingen kort na elkaar, verspreid over
+  // een paar seconden, vangt ook dat resterende geval op zonder de gewone
+  // 5-seconden-cyclus te hoeven afwachten.
+  setTimeout(() => { if(mode === 'pvp' && syncTopic) doPoll(); }, 2000);
+  setTimeout(() => { if(mode === 'pvp' && syncTopic) doPoll(); }, 5000);
+}
 document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') pollNowIfActive(); });
 window.addEventListener('pageshow', pollNowIfActive);
 window.addEventListener('focus', pollNowIfActive);
