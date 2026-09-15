@@ -7485,8 +7485,11 @@ function handleSubmit(){
       turnNum = (myPlayerNum === 1) ? 2 : 1;
       updateTurnBanner();
     }
-    publishState();
-    if(mode === 'pvp') sendPushToOpponent();
+    // Wacht op een BEVESTIGD geslaagde opslag voordat de tegenspeler een
+    // melding krijgt -- anders kan die melding ("hij/zij speelde X!") aankomen
+    // terwijl de zet zelf nooit is opgeslagen, wat precies het "ik krijg wel
+    // een melding maar zie het dier niet binnenkomen"-probleem veroorzaakte.
+    publishState().then(ok => { if(ok && mode === 'pvp') sendPushToOpponent(); });
   }
 }
 
@@ -7850,21 +7853,33 @@ refreshGamesBtn.addEventListener('click', () => {
 
 const SYNC_WORKER_BASE = 'https://beastchain-notify.cornedewaard.workers.dev';
 async function ntfyPublish(topic, stateStr){
-  try{
-    const res = await fetch(SYNC_WORKER_BASE + '/sync-publish', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ roomCode: topic, state: stateStr })
-    });
-    if(!res.ok){
-      showPushDebugToast('versturen mislukt: HTTP ' + res.status);
-      return false;
+  // Een enkele mislukte poging betekende voorheen dat deze zet NOOIT
+  // opgeslagen werd totdat er toevallig nog een keer gepubliceerd werd (bv.
+  // bij de volgende eigen zet) -- terwijl de melding naar de tegenspeler via
+  // sendPushToOpponent() een volledig aparte, ongerelateerde aanroep is die
+  // gewoon los hiervan kan slagen. Dat gaf precies het verwarrende beeld dat
+  // de tegenspeler een melding met "je dier" kreeg, terwijl die zet
+  // eigenlijk nooit was aangekomen. Een paar directe herpogingen dekt het
+  // gangbare geval van een kort netwerk-hikje af.
+  for(let attempt = 0; attempt < 3; attempt++){
+    try{
+      const res = await fetch(SYNC_WORKER_BASE + '/sync-publish', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ roomCode: topic, state: stateStr })
+      });
+      if(res.ok){
+        const data = await res.json();
+        if(data.ok) return true;
+        showPushDebugToast('versturen mislukt: ' + (data.error || 'onbekende fout'));
+      } else {
+        showPushDebugToast('versturen mislukt: HTTP ' + res.status);
+      }
     }
-    const data = await res.json();
-    if(!data.ok){ showPushDebugToast('versturen mislukt: ' + (data.error || 'onbekende fout')); return false; }
-    return true;
+    catch(e){ showPushDebugToast('versturen mislukt: netwerkfout: ' + (e && e.message || e)); }
+    if(attempt < 2) await new Promise(r => setTimeout(r, 600 * (attempt + 1)));
   }
-  catch(e){ showPushDebugToast('versturen mislukt: netwerkfout: ' + (e && e.message || e)); return false; }
+  return false;
 }
 async function ntfyPollBest(topic){
   let res;
@@ -7882,7 +7897,8 @@ async function ntfyPollBest(topic){
 let lastSyncFailDetail = '';
 async function publishState(){
   refreshOutCode(); saveSession();
-  if(mode === 'pvp' && syncTopic) await ntfyPublish(syncTopic, encodeState());
+  if(mode === 'pvp' && syncTopic) return await ntfyPublish(syncTopic, encodeState());
+  return true;
 }
 async function doPoll(){
   if(!syncTopic) return;
