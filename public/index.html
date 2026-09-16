@@ -1067,8 +1067,8 @@
         <option value="0">Oneindig (alleen vastzetten of opgeven)</option>
       </select>
       <div class="timer-setting">
-        <label class="timer-toggle small" id="pvpTimerToggleLabel" style="text-transform:none;">
-          <input type="checkbox" id="pvpTimerEnabled"> Beurttimer — dwing een tijdslimiet per beurt af
+        <label class="timer-toggle small" style="text-transform:none;">
+          <input type="checkbox" id="pvpTimerEnabled"> <span id="pvpTimerToggleLabel">Beurttimer — dwing een tijdslimiet per beurt af</span>
         </label>
         <div class="timer-seconds-row" id="pvpTimerSecondsRow">
           <input type="number" id="pvpTimerSeconds" min="5" max="600" step="1" value="30">
@@ -1118,8 +1118,8 @@
         <option value="0">Oneindig (alleen vastzetten of opgeven)</option>
       </select>
       <div class="timer-setting" style="margin-top:10px;">
-        <label class="timer-toggle small" id="localTimerToggleLabel" style="text-transform:none;">
-          <input type="checkbox" id="localTimerEnabled"> Beurttimer — dwing een tijdslimiet per beurt af
+        <label class="timer-toggle small" style="text-transform:none;">
+          <input type="checkbox" id="localTimerEnabled"> <span id="localTimerToggleLabel">Beurttimer — dwing een tijdslimiet per beurt af</span>
         </label>
         <div class="timer-seconds-row" id="localTimerSecondsRow">
           <input type="number" id="localTimerSeconds" min="5" max="600" step="1" value="30">
@@ -1326,6 +1326,15 @@
             <option value="normal" selected>Normaal</option>
             <option value="hard">Moeilijk</option>
           </select>
+        </div>
+      </div>
+      <div class="timer-setting" style="text-align:left;">
+        <label class="timer-toggle small" style="text-transform:none;">
+          <input type="checkbox" id="cpuTimerEnabled"> <span id="cpuTimerToggleLabel">Beurttimer — dwing een tijdslimiet per beurt af</span>
+        </label>
+        <div class="timer-seconds-row" id="cpuTimerSecondsRow">
+          <input type="number" id="cpuTimerSeconds" min="5" max="600" step="1" value="30">
+          <span id="cpuTimerSecondsLabel">seconden per beurt — geen tijd meer? de computer speelt gratis verder en krijgt 2 punten i.p.v. 1</span>
         </div>
       </div>
       <button class="btn-role" id="startCpuGameBtn">Nieuw spel starten</button>
@@ -1914,6 +1923,12 @@ const UI_STRINGS = {
   cpuGameLangLabel:  { nl:'Speeltaal', en:'Game language' },
   cpuChainLimitLabel:{ nl:'Kettinglimiet', en:'Chain limit' },
   cpuDifficultyLabel:{ nl:'Moeilijkheidsgraad', en:'Difficulty' },
+  pvpTimerToggleLabel:   { nl:'Beurttimer — dwing een tijdslimiet per beurt af', en:'Turn timer — enforce a time limit per turn' },
+  pvpTimerSecondsLabel:  { nl:'seconden per beurt — geen tijd meer? beurt gaat naar je tegenstander, die dan 2 punten kan verdienen i.p.v. 1', en:'seconds per turn — out of time? the turn passes to your opponent, who can then earn 2 points instead of 1' },
+  localTimerToggleLabel: { nl:'Beurttimer — dwing een tijdslimiet per beurt af', en:'Turn timer — enforce a time limit per turn' },
+  localTimerSecondsLabel:{ nl:'seconden per beurt — geen tijd meer? beurt gaat door, en de volgende speler kan dan 2 punten verdienen i.p.v. 1', en:'seconds per turn — out of time? the turn passes on, and the next player can then earn 2 points instead of 1' },
+  cpuTimerToggleLabel:   { nl:'Beurttimer — dwing een tijdslimiet per beurt af', en:'Turn timer — enforce a time limit per turn' },
+  cpuTimerSecondsLabel:  { nl:'seconden per beurt — geen tijd meer? de computer speelt gratis verder en krijgt 2 punten i.p.v. 1', en:'seconds per turn — out of time? the computer plays a free move and earns 2 points instead of 1' },
 };
 
 function applyUIStrings(){
@@ -2058,6 +2073,10 @@ const pvpGameLangSelect = document.getElementById('pvpGameLangSelect');
 const cpuLobbyEl = document.getElementById('cpuLobby');
 const cpuChainLimitSelect = document.getElementById('cpuChainLimitSelect');
 const cpuDifficultySelect = document.getElementById('cpuDifficultySelect');
+const cpuTimerEnabledEl = document.getElementById('cpuTimerEnabled');
+const cpuTimerSecondsRowEl = document.getElementById('cpuTimerSecondsRow');
+const cpuTimerSecondsEl = document.getElementById('cpuTimerSeconds');
+cpuTimerEnabledEl.addEventListener('change', () => { cpuTimerSecondsRowEl.style.display = cpuTimerEnabledEl.checked ? 'flex' : 'none'; });
 const cpuGameLangSelect = document.getElementById('cpuGameLangSelect');
 const startCpuGameBtn = document.getElementById('startCpuGameBtn');
 const joinCodeInput = document.getElementById('joinCodeInput');
@@ -7223,7 +7242,7 @@ function saveCpuGame(){
   if(mode !== 'cpu') return;
   try{
     localStorage.setItem(CPU_GAME_KEY, JSON.stringify({
-      chainLimit, difficulty: cpuDifficulty, over, resultMsg, endWinner, lang: gameLang,
+      chainLimit, turnTimerSeconds, difficulty: cpuDifficulty, over, resultMsg, endWinner, lang: gameLang,
       chain: chain.map(e => ({name:e.name, gen:e.gen, by:e.by, skipBonus:!!e.skipBonus, jokerUsed:!!e.jokerUsed, hintCost:!!e.hintCost}))
     }));
   }catch(e){}
@@ -7534,6 +7553,7 @@ function cpuMove(requiredLetter){
         commitEntry({name:p.name, gen:p.gen, by:'cpu', freeMove:true});
         resetTurnTools();
         playGameSfx('yourturn');
+        startTurnTimer();
         return;
       }
     }
@@ -7594,6 +7614,7 @@ function cpuMove(requiredLetter){
   commitEntry({name:p.name, gen:p.gen, by:'cpu'});
   resetTurnTools(); // it's the human's turn again
   playGameSfx('yourturn');
+  startTurnTimer();
 }
 
 function handleSubmit(){
@@ -7753,6 +7774,28 @@ function performSkip(isTimeout){
 }
 skipBtn.addEventListener('click', () => performSkip(false));
 
+// Cpu-tegenhanger van performSkip: er is geen handmatige knop voor (de
+// computer wacht toch nooit op de speler), dit gebeurt alleen automatisch
+// als de beurttimer van de speler afloopt. De computer speelt dan gewoon
+// een willekeurig, nog niet gebruikt dier -- geen lettereis, net als de
+// bestaande "geen dieren meer over"-noodgreep -- en krijgt daar de +1
+// bonus voor, exact dezelfde regel als bij een gemiste pvp/lokale beurt.
+function performCpuTimeoutSkip(){
+  if(over || mode !== 'cpu') return;
+  stopTurnTimer();
+  const freeName = pickFreeAnimal();
+  if(!freeName) return; // vrijwel ondenkbaar (elk dier al gebruikt), dan gebeurt er simpelweg niets
+  addSkipLog(gameLang==='nl'
+    ? 'Je tijd is om — de computer speelt gratis verder en krijgt +1 bonuspunt.'
+    : "Your time ran out — the computer plays a free move and gets a +1 bonus point.");
+  const p = animalByLower.get(freeName.toLowerCase());
+  commitEntry({ name: p.name, gen: p.gen, by: 'cpu', skipBonus: true, freeMove: true });
+  if(over) return; // checkChainLimitEnd kan het spel net op deze zet hebben afgesloten
+  resetTurnTools();
+  playGameSfx('yourturn');
+  startTurnTimer();
+}
+
 // ---------- beurttimer ----------
 function stopTurnTimer(){
   if(turnTimerIntervalId){ clearInterval(turnTimerIntervalId); turnTimerIntervalId = null; }
@@ -7761,7 +7804,7 @@ function stopTurnTimer(){
   turnTimerBadgeEl.classList.remove('warn','danger');
 }
 function startTurnTimer(){
-  if(!turnTimerSeconds || over || (mode !== 'pvp' && mode !== 'local')){ stopTurnTimer(); return; }
+  if(!turnTimerSeconds || over || (mode !== 'pvp' && mode !== 'local' && mode !== 'cpu')){ stopTurnTimer(); return; }
   turnTimerDeadline = Date.now() + turnTimerSeconds * 1000;
   if(turnTimerIntervalId) clearInterval(turnTimerIntervalId);
   updateTurnTimerTick();
@@ -7775,7 +7818,10 @@ function updateTurnTimerTick(){
   turnTimerBadgeEl.textContent = String(remainingSec);
   turnTimerBadgeEl.classList.toggle('warn', remainingSec <= Math.ceil(turnTimerSeconds * 0.5) && remainingSec > Math.ceil(turnTimerSeconds * 0.25));
   turnTimerBadgeEl.classList.toggle('danger', remainingSec <= Math.ceil(turnTimerSeconds * 0.25));
-  if(remainingMs <= 0) performSkip(true);
+  if(remainingMs <= 0){
+    if(mode === 'cpu') performCpuTimeoutSkip();
+    else performSkip(true);
+  }
 }
 
 function resetGameState(){
@@ -8416,6 +8462,7 @@ function switchToCpu(){
 
 function resumeCpuGame(saved){
   chainLimit = saved.chainLimit || 0;
+  turnTimerSeconds = saved.turnTimerSeconds || 0;
   cpuDifficulty = saved.difficulty || 'normal';
   gameStartKnownAnimals = new Set(loadStats().uniqueAnimals || []);
   used = new Set(); chain = []; awardedAchievements = new Set();
@@ -8444,17 +8491,22 @@ function resumeCpuGame(saved){
   updateScoreRow();
   updateStatus();
   renderAchievementsPanel();
+  // Bij het heropenen van een lopend potje begint de klok hier opnieuw --
+  // niet vanaf een moment dat allang verstreken is.
+  if(!over) startTurnTimer();
 }
 
 function startNewCpuGame(){
   applyGameLanguage(cpuGameLangSelect.value === 'en' ? 'en' : 'nl');
   chainLimit = parseInt(cpuChainLimitSelect.value, 10) || 0;
+  turnTimerSeconds = cpuTimerEnabledEl.checked ? (parseInt(cpuTimerSecondsEl.value, 10) || 0) : 0;
   cpuDifficulty = cpuDifficultySelect.value || 'normal';
   cpuLobbyEl.style.display = 'none';
   gameAreaEl.style.display = 'block';
   resetGameState();
   saveCpuGame();
   recordGameStarted();
+  startTurnTimer(); // de speler begint altijd zelf in cpu-modus
 }
 startCpuGameBtn.addEventListener('click', startNewCpuGame);
 
