@@ -56,7 +56,7 @@
 
   *{ box-sizing:border-box; }
   html,body{
-    margin:0; padding:0; min-height:100%; min-height:100vh; min-height:100dvh;
+    margin:0; padding:0; width:100%; min-height:100%; min-height:100vh; min-height:100dvh;
     background:
       linear-gradient(rgba(20,15,10,.45), rgba(20,15,10,.45)),
       url('game-assets/bg-leopard.jpg');
@@ -66,6 +66,15 @@
     font-family:'Lora', serif;
     color: var(--ink);
     display:flex; align-items:center; justify-content:center;
+  }
+  /* De safe-area-opvulling hoort alleen op body -- stond eerst ook op html
+     via de gecombineerde selector hierboven, waardoor html's eigen
+     content-box net iets smaller werd dan het scherm. Omdat body's breedte
+     (100%) tegen DIE al-versmalde html-box werd berekend, kwam body's
+     luipaard-achtergrond niet meer helemaal tot de rand -- in die
+     resterende rand langs elke kant scheen html's eigen (crème) achtergrond
+     doorheen in plaats van de luipaardprint. */
+  body{
     padding: max(14px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   }
 
