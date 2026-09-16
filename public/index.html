@@ -2360,12 +2360,17 @@ function renderGlobalAchievements(){
       // voortgangsvulling (niet alleen wel/niet behaald).
       div.appendChild(buildTierTrackEl(def, rec, bestCount, style));
 
-      // 3. Pas daarna de ontdekte dieren, in de taal die nu actief is.
+      // 3. Pas daarna de ontdekte dieren, in de taal die nu actief is. Zegt
+      // er expliciet bij in welke taal, want dit is een taal-specifieke
+      // deelverzameling -- de medaille hierboven telt elk potje mee waarin
+      // deze speler speelde, ongeacht de taal van dat potje, dus kan
+      // hoger uitvallen dan wat hier (in slechts één taal) getoond wordt.
       const chipsHead = document.createElement('div');
       chipsHead.className = 'stamp-chips-head';
+      const langLabel = uiLang === 'nl' ? 'Nederlands' : 'English';
       chipsHead.textContent = uiLang === 'nl'
-        ? `${animals.length} dieren ontdekt in deze categorie`
-        : `${animals.length} animals discovered in this category`;
+        ? `${animals.length} dieren ontdekt in deze categorie (${langLabel})`
+        : `${animals.length} animals discovered in this category (${langLabel})`;
       div.appendChild(chipsHead);
       if(animals.length){
         const chips = document.createElement('div');
