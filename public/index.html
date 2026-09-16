@@ -276,13 +276,29 @@
     word-break:break-all; resize:none; height:44px; overflow-y:auto;
   }
 
+  .turn-banner-row{ display:flex; align-items:center; gap:8px; margin-left:14px; margin-bottom:10px; }
   .turn-banner{
-    margin-left:14px; text-align:center; font-family:'Special Elite', monospace; font-size:11.5px;
-    margin-bottom:10px; padding:8px; border-radius:3px; border:1.5px dashed var(--ink);
+    flex:1; text-align:center; font-family:'Special Elite', monospace; font-size:11.5px;
+    padding:8px; border-radius:3px; border:1.5px dashed var(--ink);
     background: #fffdf655; color: var(--ink);
   }
   .turn-banner.p2{ border-color: var(--opp); color: var(--opp); }
   .turn-banner.done{ border-color: var(--rust); color: var(--rust); border-style:solid; }
+  .turn-timer-badge{
+    flex-shrink:0; width:30px; height:30px; border-radius:50%; display:none; align-items:center; justify-content:center;
+    font-family:'DM Sans', sans-serif; font-weight:700; font-size:12px; color:#fff; background: var(--ok, #3f7d4a);
+  }
+  .turn-timer-badge.warn{ background:#b8862f; }
+  .turn-timer-badge.danger{ background:#9c3a3a; }
+
+  .timer-setting{ margin-bottom:10px; }
+  .timer-setting .timer-toggle{ display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:0; }
+  .timer-setting .timer-toggle input[type=checkbox]{ width:auto; margin:0; }
+  .timer-seconds-row{ display:none; align-items:center; gap:8px; margin-top:8px; font-family:'DM Sans', sans-serif; font-size:12.5px; color: var(--ink-dim); }
+  .timer-seconds-row input[type=number]{
+    width:64px; font-family:'Lora', serif; font-size:14px; padding:8px 10px;
+    border-radius:8px; border:1px solid var(--border); background:var(--card); color: var(--ink);
+  }
 
   .status-row{
     margin-left:14px; display:flex; justify-content:space-between; align-items:center;
@@ -1050,6 +1066,15 @@
         <option value="500">500 dieren</option>
         <option value="0">Oneindig (alleen vastzetten of opgeven)</option>
       </select>
+      <div class="timer-setting">
+        <label class="timer-toggle small" id="pvpTimerToggleLabel" style="text-transform:none;">
+          <input type="checkbox" id="pvpTimerEnabled"> Beurttimer — dwing een tijdslimiet per beurt af
+        </label>
+        <div class="timer-seconds-row" id="pvpTimerSecondsRow">
+          <input type="number" id="pvpTimerSeconds" min="5" max="600" step="1" value="30">
+          <span id="pvpTimerSecondsLabel">seconden per beurt — geen tijd meer? beurt gaat naar je tegenstander, die dan 2 punten kan verdienen i.p.v. 1</span>
+        </div>
+      </div>
       <button class="btn-role" id="startAsP1Btn">Nieuw spel starten (ik ben speler 1)</button>
     </div>
     <div class="lobby-panel">
@@ -1092,6 +1117,15 @@
         <option value="500">500 dieren</option>
         <option value="0">Oneindig (alleen vastzetten of opgeven)</option>
       </select>
+      <div class="timer-setting" style="margin-top:10px;">
+        <label class="timer-toggle small" id="localTimerToggleLabel" style="text-transform:none;">
+          <input type="checkbox" id="localTimerEnabled"> Beurttimer — dwing een tijdslimiet per beurt af
+        </label>
+        <div class="timer-seconds-row" id="localTimerSecondsRow">
+          <input type="number" id="localTimerSeconds" min="5" max="600" step="1" value="30">
+          <span id="localTimerSecondsLabel">seconden per beurt — geen tijd meer? beurt gaat door, en de volgende speler kan dan 2 punten verdienen i.p.v. 1</span>
+        </div>
+      </div>
       <button class="btn-role" id="startLocalGameBtn" style="margin-top:14px;">Start het spel</button>
       <button class="btn-copy" id="backFromLocalSetupBtn" style="width:100%;margin-top:8px;">← Terug</button>
     </div>
@@ -1299,7 +1333,10 @@
   </div>
 
   <div id="gameArea" style="display:none;">
-    <div class="turn-banner" id="turnBanner" style="display:none;"></div>
+    <div class="turn-banner-row">
+      <div class="turn-banner" id="turnBanner" style="display:none;"></div>
+      <div class="turn-timer-badge" id="turnTimerBadge"></div>
+    </div>
 
     <div class="status-row">
       <span id="chainLenLabel">Kettinglengte:</span> <b id="chainLen">0</b>
@@ -1779,6 +1816,14 @@ let myPlayerNum = null;
 let turnNum = 1;
 let endWinner = 0;
 let skipPending = false; // true if the current mover gets +1 bonus for successfully naming an animal
+// Beurttimer: 0 = uit. Loopt lokaal op elk toestel apart (gestart op het
+// moment dat dat toestel zelf ziet dat de beurt begint), nooit als een
+// live-gesynchroniseerde klok tussen twee telefoons -- dat zou anders
+// precies de sync-vertraging die we eerder al tegenkwamen (Cloudflare KV)
+// oneerlijk laten meetellen.
+let turnTimerSeconds = 0;
+let turnTimerDeadline = null; // Date.now()-tijdstip waarop de lopende beurt afloopt, of null als er geen klok loopt
+let turnTimerIntervalId = null;
 const JOKER_COST = 5; // punten die een joker kost
 const HINT_COST = 1;  // punten die een hint kost
 let jokerArmed = false;        // true while the joker is "aimed" at my next submission
@@ -1961,6 +2006,10 @@ const localPlayerCountSelect = document.getElementById('localPlayerCountSelect')
 const localNameInputsWrap = document.getElementById('localNameInputsWrap');
 const localGameLangSelect = document.getElementById('localGameLangSelect');
 const localChainLimitSelect = document.getElementById('localChainLimitSelect');
+const localTimerEnabledEl = document.getElementById('localTimerEnabled');
+const localTimerSecondsRowEl = document.getElementById('localTimerSecondsRow');
+const localTimerSecondsEl = document.getElementById('localTimerSeconds');
+localTimerEnabledEl.addEventListener('change', () => { localTimerSecondsRowEl.style.display = localTimerEnabledEl.checked ? 'flex' : 'none'; });
 const startLocalGameBtn = document.getElementById('startLocalGameBtn');
 const handoffModalEl = document.getElementById('handoffModal');
 const handoffLastWrapEl = document.getElementById('handoffLastWrap');
@@ -2001,6 +2050,10 @@ const refreshGamesBtn = document.getElementById('refreshGamesBtn');
 const lobbyErrorEl = document.getElementById('lobbyError');
 const startAsP1Btn = document.getElementById('startAsP1Btn');
 const chainLimitSelect = document.getElementById('chainLimitSelect');
+const pvpTimerEnabledEl = document.getElementById('pvpTimerEnabled');
+const pvpTimerSecondsRowEl = document.getElementById('pvpTimerSecondsRow');
+const pvpTimerSecondsEl = document.getElementById('pvpTimerSeconds');
+pvpTimerEnabledEl.addEventListener('change', () => { pvpTimerSecondsRowEl.style.display = pvpTimerEnabledEl.checked ? 'flex' : 'none'; });
 const pvpGameLangSelect = document.getElementById('pvpGameLangSelect');
 const cpuLobbyEl = document.getElementById('cpuLobby');
 const cpuChainLimitSelect = document.getElementById('cpuChainLimitSelect');
@@ -2023,6 +2076,7 @@ const loadCodeBtn = document.getElementById('loadCodeBtn');
 const syncErrorEl = document.getElementById('syncError');
 const gameAreaEl = document.getElementById('gameArea');
 const turnBannerEl = document.getElementById('turnBanner');
+const turnTimerBadgeEl = document.getElementById('turnTimerBadge');
 const hintEl = document.getElementById('hint');
 const revealPanel = document.getElementById('revealPanel');
 const revealEmpty = document.getElementById('revealEmpty');
@@ -7286,6 +7340,7 @@ function hideHandoffOverlay(){
   handoffModalEl.style.display = 'none';
   inputEl.disabled = false; sendBtn.disabled = false;
   inputEl.focus();
+  startTurnTimer(); // begint pas als deze speler daadwerkelijk klaarstaat, niet al tijdens het doorgeven
   playGameSfx('yourturn');
 }
 handoffReadyBtn.addEventListener('click', hideHandoffOverlay);
@@ -7323,6 +7378,7 @@ startLocalGameBtn.addEventListener('click', () => {
   mode = 'local';
   applyGameLanguage(localGameLangSelect.value === 'en' ? 'en' : 'nl');
   chainLimit = parseInt(localChainLimitSelect.value, 10) || 0;
+  turnTimerSeconds = localTimerEnabledEl.checked ? (parseInt(localTimerSecondsEl.value, 10) || 0) : 0;
   turnNum = 1; myPlayerNum = null;
   resetGameState();
   localSetupLobbyEl.style.display = 'none';
@@ -7330,6 +7386,7 @@ startLocalGameBtn.addEventListener('click', () => {
   restartBtn.style.display = 'none'; giveBtn.style.display = 'inline-block'; skipBtn.style.display = 'none';
   recordGameStarted();
   updateTurnBanner();
+  startTurnTimer();
 });
 
 function showGameOverModal(){
@@ -7405,6 +7462,7 @@ gameoverRestartBtn.addEventListener('click', () => {
 
 function endGameUI(msg){
   over = true; resultMsg = msg;
+  stopTurnTimer();
   inputEl.disabled = true; sendBtn.disabled = true;
   giveBtn.style.display = 'none'; skipBtn.style.display = 'none'; restartBtn.style.display = 'inline-block';
   addWin(msg);
@@ -7573,6 +7631,7 @@ function handleSubmit(){
   if(hintPendingCost){ entry.hintCost = true; hintPendingCost = false; }
   if(autoCorrected) addSkipLog((gameLang==='nl' ? 'Typefoutje verbeterd: "' : 'Typo corrected: "') + raw + '" → "' + official.name + '"');
   commitEntry(entry);
+  stopTurnTimer(); // deze beurt is voorbij -- de volgende speler krijgt pas weer een klok als het echt hun beurt wordt
   playGameSfx('valid');
   inputEl.value = '';
   hintBoxEl.style.display = 'none';
@@ -7660,16 +7719,22 @@ giveBtn.addEventListener('click', () => {
   }
 });
 
-skipBtn.addEventListener('click', () => {
+// Gedeeld tussen de handmatige "Beurt overslaan"-knop en het automatisch
+// overslaan van een beurt waarvan de tijd om is (zie de beurttimer
+// hieronder) -- allebei dezelfde regel: de beurt gaat door zonder dat er
+// een dier bijkomt, en wie hem overneemt krijgt +1 bonuspunt als die er
+// zelf wél eentje weet (dus 2 punten in plaats van 1 voor die zet).
+function performSkip(isTimeout){
   if(over) return;
   if(mode === 'local'){
     const skippedBy = turnNum;
-    const other = turnNum === 1 ? 2 : 1;
+    const other = (turnNum % localPlayerCount) + 1;
     addSkipLog(gameLang==='nl'
-      ? (nameForPlayer(skippedBy) + ' slaat de beurt over — ' + nameForPlayer(other) + ' krijgt +1 bonuspunt als hij/zij er wél een weet.')
-      : (nameForPlayer(skippedBy) + ' skips this turn — ' + nameForPlayer(other) + ' gets a +1 bonus point if they find one.'));
+      ? (nameForPlayer(skippedBy) + (isTimeout ? ' is te laat — ' : ' slaat de beurt over — ') + nameForPlayer(other) + ' krijgt +1 bonuspunt als hij/zij er wél een weet.')
+      : (nameForPlayer(skippedBy) + (isTimeout ? ' ran out of time — ' : ' skips this turn — ') + nameForPlayer(other) + ' gets a +1 bonus point if they find one.'));
     turnNum = other;
     skipPending = true;
+    stopTurnTimer();
     updateTurnBanner();
     showHandoffOverlay();
     return;
@@ -7678,16 +7743,44 @@ skipBtn.addEventListener('click', () => {
   if(turnNum !== myPlayerNum) return;
   const other = myPlayerNum === 1 ? 2 : 1;
   addSkipLog(gameLang==='nl'
-    ? ('Jij slaat de beurt over — ' + nameForPlayer(other) + ' krijgt +1 bonuspunt als hij/zij er wél een weet.')
-    : ('You skip this turn — ' + nameForPlayer(other) + ' gets a +1 bonus point if they find one.'));
+    ? ((isTimeout ? 'Je tijd is om — ' : 'Jij slaat de beurt over — ') + nameForPlayer(other) + ' krijgt +1 bonuspunt als hij/zij er wél een weet.')
+    : ((isTimeout ? 'Your time ran out — ' : 'You skip this turn — ') + nameForPlayer(other) + ' gets a +1 bonus point if they find one.'));
   turnNum = other;
   skipPending = true;
+  stopTurnTimer();
   updateTurnBanner();
   publishState();
-});
+}
+skipBtn.addEventListener('click', () => performSkip(false));
+
+// ---------- beurttimer ----------
+function stopTurnTimer(){
+  if(turnTimerIntervalId){ clearInterval(turnTimerIntervalId); turnTimerIntervalId = null; }
+  turnTimerDeadline = null;
+  turnTimerBadgeEl.style.display = 'none';
+  turnTimerBadgeEl.classList.remove('warn','danger');
+}
+function startTurnTimer(){
+  if(!turnTimerSeconds || over || (mode !== 'pvp' && mode !== 'local')){ stopTurnTimer(); return; }
+  turnTimerDeadline = Date.now() + turnTimerSeconds * 1000;
+  if(turnTimerIntervalId) clearInterval(turnTimerIntervalId);
+  updateTurnTimerTick();
+  turnTimerIntervalId = setInterval(updateTurnTimerTick, 250);
+}
+function updateTurnTimerTick(){
+  if(turnTimerDeadline === null) return;
+  const remainingMs = turnTimerDeadline - Date.now();
+  const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+  turnTimerBadgeEl.style.display = 'flex';
+  turnTimerBadgeEl.textContent = String(remainingSec);
+  turnTimerBadgeEl.classList.toggle('warn', remainingSec <= Math.ceil(turnTimerSeconds * 0.5) && remainingSec > Math.ceil(turnTimerSeconds * 0.25));
+  turnTimerBadgeEl.classList.toggle('danger', remainingSec <= Math.ceil(turnTimerSeconds * 0.25));
+  if(remainingMs <= 0) performSkip(true);
+}
 
 function resetGameState(){
   used = new Set(); chain = []; over = false; resultMsg=''; awardedAchievements = new Set(); endWinner = 0; skipPending = false;
+  stopTurnTimer(); // defensief: nooit een klok van een vorig potje laten doortikken
   screenEl.innerHTML = '';
   inputEl.disabled = false; sendBtn.disabled = false;
   giveBtn.style.display = 'inline-block'; restartBtn.style.display = 'none';
@@ -7735,12 +7828,18 @@ function encodeState(){
   const n2 = encodeURIComponent(player2Name || '');
   const f1 = encodeURIComponent(player1Fav || '');
   const f2 = encodeURIComponent(player2Fav || '');
-  return [turnNum, over ? 1 : 0, endWinner, skipPending ? 1 : 0, chainLimit, gameLang, n1, n2, f1, f2, pairs].join('|');
+  // turnTimerSeconds zit als subveld ":N" achter turnNum geplakt, in plaats
+  // van als eigen kolom -- zo blijven alle bestaande kolomposities (en dus
+  // ook een code die nog van vóór deze functie stamt) ondubbelzinnig
+  // leesbaar: geen ":" erachter betekent gewoon "geen timer ingesteld".
+  return [turnNum + ':' + turnTimerSeconds, over ? 1 : 0, endWinner, skipPending ? 1 : 0, chainLimit, gameLang, n1, n2, f1, f2, pairs].join('|');
 }
 function decodeState(code){
   const parts = code.trim().split('|');
   if(parts.length < 10) throw new Error(uiLang==='nl' ? 'Onherkenbare code.' : 'Unrecognised code.');
-  const t = parseInt(parts[0], 10);
+  const turnBits = parts[0].split(':');
+  const t = parseInt(turnBits[0], 10);
+  const tt = turnBits.length > 1 ? (parseInt(turnBits[1], 10) || 0) : 0;
   const o = parts[1] === '1';
   const w = parseInt(parts[2], 10) || 0;
   const sk = parts[3] === '1';
@@ -7773,7 +7872,7 @@ function decodeState(code){
     return entry;
   }) : [];
   if(isNaN(t)) throw new Error(uiLang==='nl' ? 'Onherkenbare code.' : 'Unrecognised code.');
-  return { t, o, w, sk, cl, lang, n1, n2, f1, f2, c };
+  return { t, o, w, sk, cl, tt, lang, n1, n2, f1, f2, c };
 }
 
 function applyRemoteState(parsed){
@@ -7787,6 +7886,7 @@ function applyRemoteState(parsed){
   // game currently on screen.
   if(parsed.lang && parsed.lang !== gameLang) applyGameLanguage(parsed.lang);
   if(parsed.cl !== undefined) chainLimit = parsed.cl;
+  if(parsed.tt !== undefined) turnTimerSeconds = parsed.tt;
   const isBulkCatchUp = (parsed.c.length - chain.length) > 3;
   for(let i = chain.length; i < parsed.c.length; i++) commitEntry(parsed.c[i], isBulkCatchUp);
   if(parsed.c.length >= chain.length){ turnNum = parsed.t; skipPending = parsed.sk; }
@@ -7807,7 +7907,7 @@ function applyRemoteState(parsed){
   updateTurnBanner();
   refreshOutCode();
   saveSession();
-  if(becameMyTurn && !over){ notifyMyTurn(); playGameSfx('yourturn'); }
+  if(becameMyTurn && !over){ startTurnTimer(); notifyMyTurn(); playGameSfx('yourturn'); }
 }
 function refreshOutCode(){ outCodeEl.value = encodeState(); }
 
@@ -7819,7 +7919,7 @@ function saveSession(){
   const roomCode = roomCodeDisplayEl.textContent;
   if(!roomCode) return;
   const games = loadAllGames();
-  games[roomCode] = { myPlayerNum, syncTopic, turnNum, over, resultMsg, endWinner, skipPending, chainLimit, lang: gameLang,
+  games[roomCode] = { myPlayerNum, syncTopic, turnNum, over, resultMsg, endWinner, skipPending, chainLimit, turnTimerSeconds, lang: gameLang,
     roomCode, player1Name, player2Name, player1Fav, player2Fav,
     chain: chain.map(e => ({ name: e.name, gen: e.gen, by: e.by, skipBonus: !!e.skipBonus, jokerUsed: !!e.jokerUsed, hintCost: !!e.hintCost })),
     updatedAt: Date.now() };
@@ -7921,6 +8021,7 @@ function openGame(roomCode){
   applyGameLanguage(s.lang === 'en' ? 'en' : 'nl');
   myPlayerNum = s.myPlayerNum; turnNum = s.turnNum;
   chainLimit = s.chainLimit || 0;
+  turnTimerSeconds = s.turnTimerSeconds || 0;
   player1Name = s.player1Name || ''; player2Name = s.player2Name || '';
   player1Fav = s.player1Fav || ''; player2Fav = s.player2Fav || '';
   gameStartKnownAnimals = new Set(loadStats().uniqueAnimals || []);
@@ -7958,6 +8059,9 @@ function openGame(roomCode){
   roomCodeDisplayEl.textContent = s.roomCode || roomCode;
   syncStatusEl.textContent = uiLang==='nl' ? 'Verbinden…' : 'Connecting…'; syncStatusEl.classList.remove('live');
   updateTurnBanner();
+  // De beurttimer begint hier, op het moment van het openen van dit lopende
+  // spel -- niet vanaf een (mogelijk allang verstreken) moment bij de ander.
+  if(!over && myPlayerNum === turnNum) startTurnTimer();
   startSync(s.syncTopic);
   setActiveGame(roomCode);
   return true;
@@ -7967,6 +8071,7 @@ backToListBtn.addEventListener('click', () => {
   if(mode !== 'pvp') return;
   saveSession();
   stopSync();
+  stopTurnTimer();
   myPlayerNum = null; turnNum = 1;
   clearActiveGame();
   showGamesList();
@@ -8146,6 +8251,7 @@ startAsP1Btn.addEventListener('click', () => {
   myPlayerNum = 1; turnNum = 1;
   applyGameLanguage(pvpGameLangSelect.value === 'en' ? 'en' : 'nl');
   chainLimit = parseInt(chainLimitSelect.value, 10) || 0;
+  turnTimerSeconds = pvpTimerEnabledEl.checked ? (parseInt(pvpTimerSecondsEl.value, 10) || 0) : 0;
   player1Name = getPlayerName(); player2Name = '';
   resetGameState();
   lobbyEl.style.display = 'none';
@@ -8155,6 +8261,7 @@ startAsP1Btn.addEventListener('click', () => {
   syncStatusEl.textContent = uiLang==='nl' ? 'Verbinden…' : 'Connecting…';
   syncStatusEl.classList.remove('live');
   updateTurnBanner();
+  startTurnTimer();
   startSync(topic);
   updateNotifyBtn();
   saveSession();
@@ -8174,6 +8281,7 @@ function joinRoomWithCode(code){
   const topic = TOPIC_PREFIX + code;
   myPlayerNum = 2; turnNum = 1;
   chainLimit = 0; // learned from player 1 via the first sync
+  turnTimerSeconds = 0; // idem -- player 2 never sets deze zelf
   player1Name = ''; player2Name = getPlayerName();
   resetGameState();
   lobbyEl.style.display = 'none';
@@ -8285,7 +8393,7 @@ loadCodeBtn.addEventListener('click', () => {
 
 function switchToCpu(){
   preloadGameAudio();
-  mode = 'cpu'; myPlayerNum = null; stopSync();
+  mode = 'cpu'; myPlayerNum = null; stopSync(); stopTurnTimer();
   modeCpuBtn.classList.add('active'); modePvpBtn.classList.remove('active'); modeAchBtn.classList.remove('active');
   lobbyEl.style.display = 'none'; syncPanelEl.style.display = 'none'; achievementsTabEl.style.display = 'none';
   localSetupLobbyEl.style.display = 'none';
@@ -8352,7 +8460,7 @@ startCpuGameBtn.addEventListener('click', startNewCpuGame);
 
 function switchToPvp(){
   preloadGameAudio();
-  mode = 'pvp'; myPlayerNum = null; stopSync();
+  mode = 'pvp'; myPlayerNum = null; stopSync(); stopTurnTimer();
   modePvpBtn.classList.add('active'); modeCpuBtn.classList.remove('active'); modeAchBtn.classList.remove('active');
   gameAreaEl.style.display = 'none'; syncPanelEl.style.display = 'none'; achievementsTabEl.style.display = 'none'; cpuLobbyEl.style.display = 'none';
   localSetupLobbyEl.style.display = 'none';
@@ -8363,6 +8471,7 @@ function switchToPvp(){
 }
 function switchToAchievements(){
   stopSync();
+  stopTurnTimer();
   modeAchBtn.classList.add('active'); modeCpuBtn.classList.remove('active'); modePvpBtn.classList.remove('active');
   lobbyEl.style.display = 'none'; syncPanelEl.style.display = 'none'; cpuLobbyEl.style.display = 'none';
   localSetupLobbyEl.style.display = 'none';
