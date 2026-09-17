@@ -2,7 +2,7 @@
 // Bump this version whenever you upload a new build; the old cache is then
 // thrown away automatically so players get the new version instead of a
 // stale copy from their phone.
-const CACHE = 'beastchain-v96';
+const CACHE = 'beastchain-v97';
 
 const APP_SHELL = [
   './',
