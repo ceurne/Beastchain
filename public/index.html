@@ -9286,7 +9286,10 @@ checkForInviteLink();
   // vóór het volgende obstakel op hogere score gewoon niet meer haalbaar,
   // hoe goed je ook speelt.
   const JUMP_AIRTIME_MS = 2 * JUMP_VELOCITY / GRAVITY * 1000;
-  const MIN_OBSTACLE_GAP_MS = JUMP_AIRTIME_MS + 300;
+  // 300ms marge bovenop de pure sprongtijd bleek te veel van de topsnelheid
+  // (en dus de moeilijkheidsgraad) op te eten -- 150ms laat nog steeds een
+  // eerlijke reactiemarge over, maar met een hogere veilige topsnelheid.
+  const MIN_OBSTACLE_GAP_MS = JUMP_AIRTIME_MS + 150;
   const CAPY_LEFT = 15; // % vanaf links
   const CAPY_WIDTH = 56, CAPY_HEIGHT = 68;
   // Elk sprite-beeldje is 28px breed (56px op 2x), maar de daadwerkelijk
@@ -9832,8 +9835,12 @@ checkForInviteLink();
       // wat meer afwisseling zodra het spel al een tijdje bezig is. Dit is
       // een vaste, ruime TIJD (niet afstand) tussen de twee -- dat geeft
       // altijd dezelfde reactietijd om te landen en opnieuw te springen,
-      // ongeacht hoe snel het spel op dat moment al is.
-      if(score > 800 && Math.random() < 0.2){
+      // ongeacht hoe snel het spel op dat moment al is. De kans zelf loopt
+      // op met de score (20% -> 40%), zodat de uitdaging bij hogere score
+      // vooral van dit soort kort-na-elkaar-timen komt, in plaats van
+      // alleen van een steeds hogere kale snelheid.
+      const doubleSpawnChance = Math.min(0.4, 0.2 + Math.max(0, score - 800) / 3000 * 0.2);
+      if(score > 800 && Math.random() < doubleSpawnChance){
         pendingDoubleSpawnAt = 1150 + Math.random()*200;
         // Zonder dit liep de gewone spawn-cyclus gewoon door tijdens het
         // wachten op deze bewuste tweede steen -- bij een hoge score kan
