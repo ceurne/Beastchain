@@ -1375,7 +1375,7 @@
       <div class="turn-banner" id="turnBanner" style="display:none;"></div>
       <div class="turn-timer-badge" id="turnTimerBadge"></div>
     </div>
-    <button class="btn-reminder" id="reminderBtn" style="display:none;">🔔 Stuur herinnering</button>
+    <button class="btn-reminder" id="reminderBtn" data-dynamic-text="1" style="display:none;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Stuur herinnering</button>
 
     <div class="status-row">
       <span id="chainLenLabel">Kettinglengte:</span> <b id="chainLen">0</b>
@@ -1959,7 +1959,7 @@ const UI_STRINGS = {
   localTimerSecondsLabel:{ nl:'seconden per beurt — geen tijd meer? beurt gaat door, en de volgende speler kan dan 2 punten verdienen i.p.v. 1', en:'seconds per turn — out of time? the turn passes on, and the next player can then earn 2 points instead of 1' },
   cpuTimerToggleLabel:   { nl:'Beurttimer — dwing een tijdslimiet per beurt af', en:'Turn timer — enforce a time limit per turn' },
   cpuTimerSecondsLabel:  { nl:'seconden per beurt — geen tijd meer? de computer speelt gratis verder en krijgt 2 punten i.p.v. 1', en:'seconds per turn — out of time? the computer plays a free move and earns 2 points instead of 1' },
-  reminderBtn: { nl:'🔔 Stuur herinnering', en:'🔔 Send reminder' },
+  reminderBtn: { nl:'Stuur herinnering', en:'Send reminder' },
 };
 
 function applyUIStrings(){
@@ -8887,11 +8887,12 @@ function sendPushToOpponent(){
 // bestookt.
 let reminderSentAt = 0;
 const REMINDER_COOLDOWN_MS = 5 * 60 * 1000; // 5 minuten
+const REMINDER_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> ';
 function updateReminderBtn(){
   const onCooldown = (Date.now() - reminderSentAt) < REMINDER_COOLDOWN_MS;
   reminderBtn.style.display = 'block';
   reminderBtn.disabled = onCooldown;
-  reminderBtn.textContent = onCooldown ? (uiLang==='nl' ? 'Verstuurd ✓' : 'Sent ✓') : UI_STRINGS.reminderBtn[uiLang];
+  reminderBtn.innerHTML = REMINDER_ICON_SVG + (onCooldown ? (uiLang==='nl' ? 'Verstuurd ✓' : 'Sent ✓') : UI_STRINGS.reminderBtn[uiLang]);
 }
 function sendReminderToOpponent(){
   if(mode !== 'pvp' || !myPlayerNum || !syncTopic || turnNum === myPlayerNum) return;
