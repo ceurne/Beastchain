@@ -1190,7 +1190,7 @@
         <div class="capirun-ground-wrap" id="capiRunGroundWrap"></div>
         <div class="capirun-hud"><div class="capirun-hud-inner">
           <div class="capirun-score" id="capiRunScore">0</div>
-          <div class="capirun-best">TOPSCORE <span id="capiRunBest">0</span></div>
+          <div class="capirun-best"><span id="capiRunTopscoreLabel">TOPSCORE</span> <span id="capiRunBest">0</span></div>
         </div></div>
         <div class="capirun-capy" id="capiRunCapy"></div>
         <div id="capiRunObstacles"></div>
@@ -1960,6 +1960,9 @@ const UI_STRINGS = {
   cpuTimerToggleLabel:   { nl:'Beurttimer — dwing een tijdslimiet per beurt af', en:'Turn timer — enforce a time limit per turn' },
   cpuTimerSecondsLabel:  { nl:'seconden per beurt — geen tijd meer? de computer speelt gratis verder en krijgt 2 punten i.p.v. 1', en:'seconds per turn — out of time? the computer plays a free move and earns 2 points instead of 1' },
   reminderBtn: { nl:'Stuur herinnering', en:'Send reminder' },
+  capiRunTopscoreLabel: { nl:'TOPSCORE', en:'HIGH SCORE' },
+  capiRunStartLabel: { nl:'Tik op springen om te beginnen', en:'Tap jump to start' },
+  capiRunJumpLabel:  { nl:'SPRING', en:'JUMP' },
 };
 
 function applyUIStrings(){
@@ -1987,6 +1990,24 @@ function applyUIStrings(){
   // iconen-plus-tekst-knoppen.
   if(shareInviteBtn && !shareInviteBtn.dataset.justCopied){
     shareInviteBtn.innerHTML = shareInviteBtn.innerHTML.replace(/Stuur uitnodiging|Send invite/, uiLang==='nl' ? 'Stuur uitnodiging' : 'Send invite');
+  }
+  const capiMuteBtn = document.getElementById('capiRunMuteBtn');
+  const capiCreditsBtn = document.getElementById('capiRunCreditsBtn');
+  if(capiMuteBtn) capiMuteBtn.title = uiLang==='nl' ? 'Geluid aan/uit' : 'Sound on/off';
+  if(capiCreditsBtn) capiCreditsBtn.title = uiLang==='nl' ? 'Bronnen van de afbeeldingen' : 'Image credits';
+  const capiCreditsPop = document.getElementById('capiRunCreditsPop');
+  if(capiCreditsPop){
+    capiCreditsPop.innerHTML = uiLang==='nl' ? `
+        Achtergronden: <a href="https://bongseng.itch.io/" target="_blank" rel="noopener" style="color:inherit;">Bongseng</a> ·
+        IJsbeer: <a href="https://www.freepik.com" target="_blank" rel="noopener" style="color:inherit;">pch.vector / Freepik</a> ·
+        Slang: <a href="https://www.vecteezy.com" target="_blank" rel="noopener" style="color:inherit;">Vecteezy.com</a> ·
+        Vlinder: <a href="https://pixabay.com/gifs/cute-butterfly-pixel-art-insect-23523/" target="_blank" rel="noopener" style="color:inherit;">Pixabay</a>
+      ` : `
+        Backgrounds: <a href="https://bongseng.itch.io/" target="_blank" rel="noopener" style="color:inherit;">Bongseng</a> ·
+        Polar bear: <a href="https://www.freepik.com" target="_blank" rel="noopener" style="color:inherit;">pch.vector / Freepik</a> ·
+        Snake: <a href="https://www.vecteezy.com" target="_blank" rel="noopener" style="color:inherit;">Vecteezy.com</a> ·
+        Butterfly: <a href="https://pixabay.com/gifs/cute-butterfly-pixel-art-insect-23523/" target="_blank" rel="noopener" style="color:inherit;">Pixabay</a>
+      `;
   }
 }
 
